@@ -174,10 +174,14 @@ function fetch_chapter(args) {
         })
 }
 
-function download_index(index, dir) {
+function download_index(index, dir, start) {
     var count = -1
     var toc = index.toc
     var length = toc.length
+
+    if (start) {
+        count +=  (start - 1)
+    }
 
     var generator = function() {
        return toc[++count]
@@ -197,6 +201,7 @@ function download_index(index, dir) {
     }
     args.chain_func = chain_func
     args.item = generator()
+    console.log("fetch ", count+1, '/', length, " : ", args.item.name)
     fetch_chapter(args)
 }
 
@@ -209,9 +214,13 @@ function download_index(index, dir) {
             (function (dir) {
                 var fs = require("fs")
                 var stat = fs.statSync(dir)
+                var begin = 1
+                if (options["-c"]) {
+                    begin = parseInt(options["-c"], 10)
+                }
                 if (stat.isDirectory()) {
                     read_index(options["-d"], (function (index) {
-                        download_index(index, dir)
+                        download_index(index, dir, begin)
                     }))
                 } else {
                     console.error(dir, "is not a directory")
