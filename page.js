@@ -107,7 +107,10 @@ function save_chapter(html, destdir, filename) {
     fs.writeFileSync(destdir + filename, html)
 }
 
-function fetch_chapter(item, dest, chain_func) {
+function fetch_chapter(args) {
+    var item = args.item
+    var dest = args.dest
+    var chain_func = args.chain_func
     require("jsdom").env(
         item.url,
         myconfig,
@@ -165,23 +168,36 @@ function fetch_chapter(item, dest, chain_func) {
                             break
                         }
                     }
-                    chain_func(html, dest, buffer.reverse().join(""))
+                    chain_func(html, buffer.reverse().join(""), args)
                 })();
             }
         })
 }
 
 function download_index(index, dir) {
-    var count
+    var count = -1
     var toc = index.toc
     var length = toc.length
-    var item
-    for (count = 1; count <= length; count++) {
-       item = toc[count-1]
-       console.log("fetching ", count, "/", length, "\t",  item.name)
-       console.log(item.url)
-       fetch_chapter(item, dir, save_chapter)
+
+    var generator = function() {
+       return toc[++count]
     }
+    var args = {
+        "generator": generator,
+        "dest": dir,
+    }
+
+    function chain_func(html, filename, args) {
+        save_chapter(html, args.dest, filename)
+        args.item = generator()
+        if (args.item) {
+           console.log("fetch ", count+1, '/', length, " : ", args.item.name)
+           fetch_chapter(args)
+        }
+    }
+    args.chain_func = chain_func
+    args.item = generator()
+    fetch_chapter(args)
 }
 
 (function main() {
@@ -205,9 +221,9 @@ function download_index(index, dir) {
             console.error("the output directory must be specified by -o")
        }
    } else if (options["-f"]) { // fetch and print chapter
-       fetch_chapter({"url" : options["-f"], "name": "test page"})
+       fetch_chapter({"item": {"url" : options["-f"], "name": "test page"}})
    } else if (options["-F"]) { // download chapter
-       fetch_chapter({"url": options["-F"], "name": "test page"},
+       fetch_chapter({"item":{"url": options["-F"], "name": "test page"}},
                ".",
                save_chapter)
    } else {
