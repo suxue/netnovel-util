@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 
-var myconfig = {features: false}
 function http_request(url, callback) {
 
     function parse_dom(input) {
-        require("jsdom").env(input, myconfig, callback)
+        require("jsdom").env(input, {features: false}, callback)
     }
 
     var http_proxy = process.env["http_proxy"]
