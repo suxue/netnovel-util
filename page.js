@@ -1,10 +1,6 @@
 #!/usr/bin/env node
 
 var myconfig = {features: false}
-if (process.env["http_proxy"]) {
-    myconfig.http_proxy = process.env.http_proxy
-}
-
 function http_request(url, callback) {
 
     function parse_dom(input) {
