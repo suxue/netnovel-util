@@ -200,31 +200,28 @@ function download_index(index, dir, start) {
     var count = -1
     var toc = index.toc
     var length = toc.length
+    start && (count += (start - 1))
 
-    if (start) {
-        count +=  (start - 1)
-    }
-
-    var generator = function() {
-       return toc[++count]
-    }
     var args = {
-        "generator": generator,
-        "dest": dir,
-    }
-
-    function chain_func(html, filename, args) {
-        save_chapter(html, args.dest, filename)
-        args.item = generator()
-        if (args.item) {
-           console.log("fetch ", count+1, '/', length, " : ", args.item.name)
-           fetch_chapter(args)
+        generator : function() {
+           return toc[++count]
+        },
+        dest: dir,
+        chain_func : function(html, filename, args) {
+            save_chapter(html, args.dest, filename)
+            fetch_next()
         }
     }
-    args.chain_func = chain_func
-    args.item = generator()
-    console.log("fetch ", count+1, '/', length, " : ", args.item.name)
-    fetch_chapter(args)
+
+    function fetch_next() {
+        args.item = args.generator()
+        if (args.item) {
+            console.log("fetch ", count+1, '/', length, " : ", args.item.name)
+            fetch_chapter(args)
+        }
+    }
+
+    fetch_next()
 }
 
 (function main() {
