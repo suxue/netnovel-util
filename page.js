@@ -5,6 +5,31 @@ if (process.env["http_proxy"]) {
     myconfig.http_proxy = process.env.http_proxy
 }
 
+function http_request(url, callback) {
+
+    function parse_dom(input) {
+        require("jsdom").env(input, myconfig, callback)
+    }
+
+    var http_proxy = process.env["http_proxy"]
+    if (http_proxy) {
+        (function () {
+            require('request')(
+                {
+                    url: url,
+                    proxy: http_proxy,
+                },
+                function(error, response, html) {
+                    if (!error && response.statusCode == 200) {
+                        parse_dom(html)
+                    }
+                })
+         })()
+    } else {
+        parse_dom(url)
+    }
+}
+
 function getopt(args) {
     var set = {}
 
@@ -44,9 +69,7 @@ function print_index(index) {
 }
 
 function read_index(url, further_operation) {
-    require("jsdom").env(
-        url,
-        myconfig,
+    http_request(url,
         function (errors, window) {
             function extractNovelInfo(parentNode) {
                 var rc = {}
@@ -111,9 +134,8 @@ function fetch_chapter(args) {
     var item = args.item
     var dest = args.dest
     var chain_func = args.chain_func
-    require("jsdom").env(
+    http_request(
         item.url,
-        myconfig,
         function (errors, window) {
             function removeNode(node) {
                 node.parentNode.removeChild(node)
