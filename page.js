@@ -3,7 +3,7 @@
 function http_request(url, callback) {
 
     function parse_dom(input) {
-        require("jsdom").env(input, {features: false}, callback)
+        require("jsdom").env(input,  {features: false} , callback)
     }
 
     var http_proxy = process.env["http_proxy"]
@@ -68,7 +68,7 @@ function read_index(url, further_operation) {
         function (errors, window) {
             function extractNovelInfo(parentNode) {
                 var rc = {}
-                var pat = /^ (.+):(.+)$/
+                var pat = /^\s*(.+):(.+)$/
                 for (var c = parentNode.firstChild; c !== null; c = c.nextSibling) {
                     if (c.nodeType === window.Node.TEXT_NODE) {
                         var tmp = pat.exec(c.data)
@@ -107,7 +107,13 @@ function read_index(url, further_operation) {
             var header = extractNovelInfo(tit.parentNode)
             var index = {
                 "title": tit.firstChild.firstChild.data,
-                "cover": tit.nextSibling.src,
+                "cover": (function(brother) { // search for img
+                    for (var x = brother.nextSibling; x; x = x.nextSibling) {
+                        if (x.nodeType === window.Node.ELEMENT_NODE
+                            && x.tagName === 'IMG')
+                            return x
+                    }
+                })(tit).src,
                 "author": header.author,
                 "toc": get_toc(document.getElementsByClassName("tit")[1]
                     .parentNode.children[1])
@@ -196,6 +202,9 @@ function download_index(index, dir, start) {
     var toc = index.toc
     var length = toc.length
     start && (count += (start - 1))
+
+    console.log("write index.json")
+    require("fs").writeFileSync(dir + "/index.json", JSON.stringify(index))
 
     var args = {
         generator : function() {
