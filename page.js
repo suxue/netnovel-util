@@ -316,11 +316,12 @@ function package_content_opf(index, zip) {
     content.push('<?xml version="1.0"  encoding="UTF-8"?>');
     content.push('<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uuid_id">');
     content.push('  <metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:dc="http://purl.org/dc/elements/1.1/">');
-    content.push('<meta name="cover" content="cover"/>');
-    content.push('<dc:creator opf:role="aut">' + index.author + '</dc:creator>');
-    content.push('<dc:language>zh-CN</dc:language>');
-    content.push('<dc:title>' + index.title+ '</dc:title>' + '</metadata>');
-    content.push('<dc:date>' + (new Date()).toISOString() + '</dc:date>');
+    content.push('   <meta name="cover" content="cover"/>');
+    content.push('   <dc:creator opf:role="aut">' + index.author + '</dc:creator>');
+    content.push('   <dc:language>zh-CN</dc:language>');
+    content.push('   <dc:title>' + index.title+ '</dc:title>');
+    content.push('   <dc:date>' + (new Date()).toISOString() + '</dc:date>');
+    content.push('  </metadata>');
 
     // start building manifest
     content.push('  <manifest>');
