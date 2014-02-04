@@ -258,6 +258,135 @@ function download_index(index, dir, start, concurrency) {
     fetch_nexts.forEach(function (c) { c(); });
 }
 
+function package_META_INF(index, zip) {
+    var filename = "META-INF/container.xml";
+    zip.addFile(filename, new Buffer(
+'<?xml version="1.0"?>\n' +
+'<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n' +
+'  <rootfiles>\n' +
+'    <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>\n' +
+'  </rootfiles>\n</container>'));
+}
+
+function package_mimetype(index, zip) {
+    var filename = "mimetype";
+    zip.addFile(filename, new Buffer("application/epub+zip"));
+}
+
+function package_ncx(index, ncx, zip) {
+    var content = [];
+    var count = 0;
+    function a(str) { content.push(str); }
+
+    a("<?xml version='1.0' encoding='utf-8'?>");
+    a('<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="en">');
+    a('  <head>');
+    a('    <meta content="ce9a2d4a-3b43-4cb9-aa35-3b01571d336d" name="dtb:uid"/>');
+    a('    <meta content="2" name="dtb:depth"/>');
+    a('    <meta content="calibre (0.9.3)" name="dtb:generator"/>');
+    a('    <meta content="0" name="dtb:totalPageCount"/>');
+    a('    <meta content="0" name="dtb:maxPageNumber"/>');
+    a('  </head>');
+    a('  <docTitle>');
+    a('    <text>' + index.title + " -- " +  index.author + '</text>');
+    a('  </docTitle>');
+    a('  <navMap>');
+
+    ncx.forEach(function(item) {
+        a('    <navPoint class="chapter" id="' + item.id + '" playOrder="' + (++count) + '">');
+        a('      <navLabel>');
+        a('        <text>'+ item.text + '</text>');
+        a('      </navLabel>');
+        a('      <content src="'+ item.src + '"/>');
+        a('    </navPoint>');
+    });
+    a('  </navMap>');
+    a('</ncx>');
+    zip.addFile("toc.ncx", new Buffer(content.join('\n')));
+}
+
+function package_content_opf(index, zip) {
+    var i;
+    var content = [];
+    var spine = [];
+    var add_chapter;
+    var base_dir = "feed_0";
+    var ncx = [];
+
+    content.push('<?xml version="1.0"  encoding="UTF-8"?>');
+    content.push('<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uuid_id">');
+    content.push('  <metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:dc="http://purl.org/dc/elements/1.1/">');
+    content.push('<meta name="cover" content="cover"/>');
+    content.push('<dc:creator opf:role="aut">' + index.author + '</dc:creator>');
+    content.push('<dc:language>zh-CN</dc:language>');
+    content.push('<dc:title>' + index.title+ '</dc:title>' + '</metadata>');
+    content.push('<dc:date>' + (new Date()).toISOString() + '</dc:date>');
+
+    // start building manifest
+    content.push('  <manifest>');
+
+    // add cover
+    content.push('   <item href="cover.jpg" id="cover" media-type="image/jpeg"/>');
+    content.push('   <item href="toc.ncx" media-type="application/x-dtbncx+xml" id="ncx"/>');
+
+    spine.push('<spine toc="ncx">');
+
+    // add chapters
+    add_chapter = (function () {
+        var count = 0;
+        function get_filename(url) {
+            var parts = url.split("/");
+            return parts[parts.length-1];
+        }
+
+        return function(item) {
+           var url = item.url;
+           var filename = get_filename(url);
+           var manifest_name = base_dir + "/" + filename;
+           content.push('   <item href="' + manifest_name  +
+                         '" id="html' + (++count) + '" ' +
+                        'media-type="application/xhtml+xml"/>');
+           spine.push('<itemref idref="html' + count + '"/>');
+           zip.includeLocalFile(filename, manifest_name);
+           ncx.push({id: "html" + count, src : manifest_name, text: item.name });
+        };
+    })();
+    index.toc.forEach(function(item) {
+        add_chapter(item);
+    });
+    content.push('  </manifest>');
+    spine.push('</spine>');
+    content.push(spine.join('\n'));
+    content.push('</package>');
+    zip.addFile("content.opf", new Buffer(content.join("\n")));
+    package_ncx(index, ncx, zip);
+}
+
+/**
+ * package html source files in dir to a single epub file
+ * @parma {object} index - the index object
+ * @parma {string} dir   - directory contains source html files
+ * @parma {string} output - output file name
+ */
+function package_epub(index, dir, output) {
+    var AdmZip = require('adm-zip'),
+        zip = new AdmZip(),
+        fs = require("fs");
+
+    if (!output) { output = index.title + ".epub"; }
+
+    zip.includeLocalFile = function(externalFile, manifestName) {
+        var buffer = new Buffer(fs.readFileSync(dir + "/" + externalFile));
+        zip.addFile(manifestName, buffer);
+    };
+
+    package_mimetype(index, zip);
+    package_META_INF(index, zip);
+    package_content_opf(index, zip);
+
+    zip.writeZip(output);
+}
+
 function main(options) {
    if (options["-l"]) { // list toc and header info
        read_index(options["-l"], print_index);
@@ -286,6 +415,22 @@ function main(options) {
        } else {
             console.error("the output directory must be specified by -o");
        }
+   } else if (options["-p"]) {
+       (function(dir) {
+            var fs = require("fs"),
+                filename = dir + "/index.json",
+                content;
+            if (fs.existsSync(filename) && fs.statSync(filename).isFile()) {
+                (function(content) {
+                    var index = JSON.parse(content),
+                        out_filename;
+                    if (options["-o"]) {
+                        out_filename = options["-o"];
+                    }
+                    package_epub(index, dir, out_filename);
+                })(fs.readFileSync(filename));
+            }
+       })(options["-p"]);
    } else if (options["-f"]) { // fetch and print chapter
        fetch_chapter({"item": {"url" : options["-f"], "name": "test page"}});
    } else if (options["-F"]) { // download chapter
