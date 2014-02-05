@@ -2,8 +2,8 @@
 
 /**
  * This is a wrapper of the jsdom env function, which adds proxy support
- * @parma {string} url - the url to be processed
- * @parma {function} callback - prototype is function(error, window)
+ * @param {string} url - the url to be processed
+ * @param {Function} callback - prototype is function(error, window)
  */
 
 function http_request(url, callback) {
@@ -39,7 +39,7 @@ function http_request(url, callback) {
 /**
  *  parse command line arguments and return a hash looks like:
  *  {"-?": undefined, "-o": "/root/home/xxx/out" }
- *  @parma {object} args
+ *  @param {object} args
  */
 function getopt(args) {
     var set = {};
@@ -416,9 +416,9 @@ function package_title_page(index, zip) {
 
 /**
  * package html source files in dir to a single epub file
- * @parma {object} index - the index object
- * @parma {string} dir   - directory contains source html files
- * @parma {string} output - output file name
+ * @param {object} index - the index object
+ * @param {string} dir   - directory contains source html files
+ * @param {string} output - output file name
  */
 function package_epub(index, dir, output) {
     var jszip = require('jszip'),
