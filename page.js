@@ -72,7 +72,7 @@ function getopt(args) {
 function print_index(index) {
     console.log("title:\t", index.title);
     console.log("author:\t", index.author);
-    console.log("cover:\t", index.cover);
+    console.log("cover:\t", index.cover.src);
     console.log("==== Table of Contecnts ====");
     index.toc.forEach(function (item) {
         console.log(item.name, " => ", item.url);
@@ -127,9 +127,9 @@ function read_index(url, further_operation) {
                     for (var x = brother.nextSibling; x; x = x.nextSibling) {
                         if (x.nodeType === window.Node.ELEMENT_NODE &&
                             x.tagName === 'IMG')
-                            return x;
+                            return {src: x.src, width: x.width, height: x.height};
                     }
-                })(tit).src,
+                })(tit),
                 "author": header.author,
                 "toc": get_toc(document.getElementsByClassName("tit")[1]
                     .parentNode.children[1])
@@ -177,6 +177,8 @@ function fetch_chapter(args) {
             removeNode(content.lastChild);
             removeNode(content.lastChild);
             removeNode(content.lastChild);
+
+            removeNodes(content.querySelectorAll("img"));
 
             var html = [
         '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"',
@@ -240,7 +242,7 @@ function download_index(index, dir, start, concurrency, chain_func) {
         console.log("write index.json");
     });
     (function() {
-        var req = request({url: index.cover, proxy: proxy });
+        var req = request({url: index.cover.src, proxy: proxy });
         var out = fs.createWriteStream(dir + "/cover.jpg");
         req.pipe(out);
         req.on("end", function() { console.log("write cover.jpg"); });
@@ -277,7 +279,7 @@ function download_index(index, dir, start, concurrency, chain_func) {
 
 function package_META_INF(index, zip) {
     var filename = "META-INF/container.xml";
-    zip.addFile(filename, new Buffer(
+    zip.file(filename, new Buffer(
 '<?xml version="1.0"?>\n' +
 '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n' +
 '  <rootfiles>\n' +
@@ -287,7 +289,7 @@ function package_META_INF(index, zip) {
 
 function package_mimetype(index, zip) {
     var filename = "mimetype";
-    zip.addFile(filename, new Buffer("application/epub+zip"));
+    zip.file(filename, new Buffer("application/epub+zip"));
 }
 
 function package_ncx(index, ncx, zip) {
@@ -319,7 +321,7 @@ function package_ncx(index, ncx, zip) {
     });
     a('  </navMap>');
     a('</ncx>');
-    zip.addFile("toc.ncx", new Buffer(content.join('\n')));
+    zip.file("toc.ncx", new Buffer(content.join('\n')));
 }
 
 function package_content_opf(index, zip) {
@@ -349,8 +351,12 @@ function package_content_opf(index, zip) {
     a('   <item href="cover.jpg" id="cover" media-type="image/jpeg"/>');
     zip.includeLocalFile("cover.jpg", "cover.jpg");
 
+    // title page
+    a('   <item href="titlepage.xhtml" id="titlepage" media-type="application/xhtml+xml"/>');
+
     a('   <item href="toc.ncx" media-type="application/x-dtbncx+xml" id="ncx"/>');
     spine.push('<spine toc="ncx">');
+    spine.push('<itemref idref="titlepage"/>');
 
     // add chapters
     add_chapter = (function () {
@@ -379,8 +385,33 @@ function package_content_opf(index, zip) {
     spine.push('</spine>');
     a(spine.join('\n'));
     a('</package>');
-    zip.addFile("content.opf", new Buffer(content.join("\n")));
+    zip.file("content.opf", new Buffer(content.join("\n")));
     package_ncx(index, ncx, zip);
+}
+
+function package_title_page(index, zip) {
+    var content = [];
+    function a(str) { content.push(str); };
+    a("<?xml version='1.0' encoding='utf-8'?>");
+    a('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">');
+    a('    <head>');
+    a('        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>');
+    a('        <title>Cover</title>');
+    a('        <style type="text/css" title="override_css">');
+    a('            @page {padding: 0pt; margin:0pt}');
+    a('            body { text-align: center; padding:0pt; margin: 0pt; }');
+    a('        </style>');
+    a('    </head>');
+    a('    <body>');
+    a('        <div>');
+    a('            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 200 160" preserveAspectRatio="none">');
+    a('                <image width="' + index.cover.width +
+                        '" height="' + index.cover.height + '" xlink:href="cover.jpg"/>');
+    a('            </svg>');
+    a('        </div>');
+    a('    </body>');
+    a('</html>');
+    zip.file("titlepage.xhtml", new Buffer(content.join("\n")));
 }
 
 /**
@@ -390,22 +421,25 @@ function package_content_opf(index, zip) {
  * @parma {string} output - output file name
  */
 function package_epub(index, dir, output) {
-    var AdmZip = require('adm-zip'),
-        zip = new AdmZip(),
+    var jszip = require('jszip'),
+        zip = new jszip(),
         fs = require("fs");
 
     if (!output) { output = index.title + ".epub"; }
 
     zip.includeLocalFile = function(externalFile, manifestName) {
         var buffer = new Buffer(fs.readFileSync(dir + "/" + externalFile));
-        zip.addFile(manifestName, buffer);
+        zip.file(manifestName, buffer);
     };
 
     package_mimetype(index, zip);
     package_META_INF(index, zip);
     package_content_opf(index, zip);
+    package_title_page(index, zip);
 
-    zip.writeZip(output);
+    fs.writeFileSync(output, zip.generate({type: "nodebuffer",
+                                           compression: "DEFLATE" }));
+    console.log("write " + output);
 }
 
 var help_message = (function() {
