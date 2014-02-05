@@ -313,22 +313,24 @@ function package_content_opf(index, zip) {
     var base_dir = "feed_0";
     var ncx = [];
 
-    content.push('<?xml version="1.0"  encoding="UTF-8"?>');
-    content.push('<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uuid_id">');
-    content.push('  <metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:dc="http://purl.org/dc/elements/1.1/">');
-    content.push('   <meta name="cover" content="cover"/>');
-    content.push('   <dc:creator opf:role="aut">' + index.author + '</dc:creator>');
-    content.push('   <dc:language>zh-CN</dc:language>');
-    content.push('   <dc:title>' + index.title+ '</dc:title>');
-    content.push('   <dc:date>' + (new Date()).toISOString() + '</dc:date>');
-    content.push('  </metadata>');
+    function a(str) { content.push(str); }
+
+    a('<?xml version="1.0"  encoding="UTF-8"?>');
+    a('<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uuid_id">');
+    a('  <metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:dc="http://purl.org/dc/elements/1.1/">');
+    a('   <meta name="cover" content="cover"/>');
+    a('   <dc:creator opf:role="aut">' + index.author + '</dc:creator>');
+    a('   <dc:language>zh-CN</dc:language>');
+    a('   <dc:title>' + index.title+ '</dc:title>');
+    a('   <dc:date>' + (new Date()).toISOString() + '</dc:date>');
+    a('  </metadata>');
 
     // start building manifest
-    content.push('  <manifest>');
+    a('  <manifest>');
 
     // add cover
-    content.push('   <item href="cover.jpg" id="cover" media-type="image/jpeg"/>');
-    content.push('   <item href="toc.ncx" media-type="application/x-dtbncx+xml" id="ncx"/>');
+    a('   <item href="cover.jpg" id="cover" media-type="image/jpeg"/>');
+    a('   <item href="toc.ncx" media-type="application/x-dtbncx+xml" id="ncx"/>');
 
     spine.push('<spine toc="ncx">');
 
@@ -344,7 +346,7 @@ function package_content_opf(index, zip) {
            var url = item.url;
            var filename = get_filename(url);
            var manifest_name = base_dir + "/" + filename;
-           content.push('   <item href="' + manifest_name  +
+           a('   <item href="' + manifest_name  +
                          '" id="html' + (++count) + '" ' +
                         'media-type="application/xhtml+xml"/>');
            spine.push('<itemref idref="html' + count + '"/>');
@@ -355,10 +357,10 @@ function package_content_opf(index, zip) {
     index.toc.forEach(function(item) {
         add_chapter(item);
     });
-    content.push('  </manifest>');
+    a('  </manifest>');
     spine.push('</spine>');
-    content.push(spine.join('\n'));
-    content.push('</package>');
+    a(spine.join('\n'));
+    a('</package>');
     zip.addFile("content.opf", new Buffer(content.join("\n")));
     package_ncx(index, ncx, zip);
 }
@@ -388,8 +390,25 @@ function package_epub(index, dir, output) {
     zip.writeZip(output);
 }
 
+var help_message = (function() {
+    var myname = process.argv[1].split("/");
+    myname = myname[myname.length - 1];
+    return "Usage: " +  myname + " [ options ]\n" +
+"OPTIONS\n" +
+"  -l url          fetch url (index page) and print table of contents\n" +
+"  -d url          fetch url (index page) download associated pages\n" +
+"  -o filename     specify output filename/dirname\n" +
+"  -c n            start downloading from the nTH item\n" +
+"  -n n            specify the concurrency when downloading\n" +
+"  -p dir          package the downloaded files into a single epub file\n" +
+"  -?|-h           print this message\n";
+})();
+
+
 function main(options) {
-   if (options["-l"]) { // list toc and header info
+   if (process.argv.length == 2 || options["-h"] || options["-?"]) {
+       console.log(help_message);
+   } else if (options["-l"]) { // list toc and header info
        read_index(options["-l"], print_index);
    } else if (options["-d"]) { // download chapters
        if (options["-o"]) {
