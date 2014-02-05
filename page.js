@@ -5,6 +5,7 @@
  * @parma {string} url - the url to be processed
  * @parma {function} callback - prototype is function(error, window)
  */
+
 function http_request(url, callback) {
     var http_proxy = process.env.http_proxy;
 
@@ -215,12 +216,18 @@ function fetch_chapter(args) {
         });
 }
 
-function download_index(index, dir, start, concurrency) {
+function download_index(index, dir, start, concurrency, chain_func) {
     var count = -1,
         toc = index.toc,
         length = toc.length,
         i,
-        fetch_nexts = [];
+        fetch_nexts = [],
+        task_count = -2,
+        fs = require("fs"),
+        request = require("request"),
+        proxy = process.env.http_proxy;
+
+    if (!chain_func) { chain_func = function() {} };
 
     if (start) {
         count += (start - 1);
@@ -229,8 +236,15 @@ function download_index(index, dir, start, concurrency) {
         }
     }
 
-    console.log("write index.json");
-    require("fs").writeFileSync(dir + "/index.json", JSON.stringify(index));
+    fs.writeFile(dir + "/index.json", JSON.stringify(index), function() {
+        console.log("write index.json");
+    });
+    (function() {
+        var req = request({url: index.cover, proxy: proxy });
+        var out = fs.createWriteStream(dir + "/cover.jpg");
+        req.pipe(out);
+        req.on("end", function() { console.log("write cover.jpg"); });
+    })();
 
     for (i=0; i < concurrency; i++) {
         fetch_nexts[i] = (function() {
@@ -250,6 +264,9 @@ function download_index(index, dir, start, concurrency) {
                     console.log("fetch ", count+1, '/', length,
                                 " : ", args.item.name);
                     fetch_chapter(args);
+                } else {
+                    task_count += 1;
+                    if (task_count == concurrency) { chain_func(); }
                 }
             };
         })();
@@ -330,8 +347,9 @@ function package_content_opf(index, zip) {
 
     // add cover
     a('   <item href="cover.jpg" id="cover" media-type="image/jpeg"/>');
-    a('   <item href="toc.ncx" media-type="application/x-dtbncx+xml" id="ncx"/>');
+    zip.includeLocalFile("cover.jpg", "cover.jpg");
 
+    a('   <item href="toc.ncx" media-type="application/x-dtbncx+xml" id="ncx"/>');
     spine.push('<spine toc="ncx">');
 
     // add chapters
