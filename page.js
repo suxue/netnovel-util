@@ -36,39 +36,6 @@ function http_request(url, callback) {
     }
 }
 
-/**
- *  parse command line arguments and return a hash looks like:
- *  {"-?": undefined, "-o": "/root/home/xxx/out" }
- *  @param {object} args
- */
-function getopt(args) {
-    var set = {};
-
-    function is_option(str) {
-        if (str.length === 2 && str[0] === '-') {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    (function filter_option(index) {
-        var arg;
-        for (; index < args.length; index++) {
-            arg = args[index];
-            if (is_option(arg)) {
-                if (index + 1 < args.length && !is_option(args[index+1])) {
-                   set[arg] = args[++index];
-                } else {
-                   set[arg] = null;
-                }
-            }
-        }
-    })(0);
-
-    return set;
-}
-
 function print_index(index) {
     console.log("title:\t", index.title);
     console.log("author:\t", index.author);
@@ -268,7 +235,10 @@ function download_index(index, dir, start, concurrency, chain_func) {
                     fetch_chapter(args);
                 } else {
                     task_count += 1;
-                    if (task_count == concurrency) { chain_func(); }
+                    if (task_count == concurrency) {
+                        console.log('\n  fetching complete, writen out to: ' + dir);
+                        chain_func();
+                    }
                 }
             };
         })();
@@ -457,37 +427,53 @@ var help_message = (function() {
 })();
 
 
-function main(options) {
-   if (process.argv.length == 2 || options["-h"] || options["-?"]) {
-       console.log(help_message);
-   } else if (options["-l"]) { // list toc and header info
-       read_index(options["-l"], print_index);
-   } else if (options["-d"]) { // download chapters
-       if (options["-o"]) {
-            (function (dir) {
-                var fs = require("fs"),
-                    stat = fs.statSync(dir),
-                    begin = 1,
-                    concurrency;
+function main(argv) {
+   var Troll = require('troll-opt').Troll;
 
-                if (options["-c"]) {
-                    begin = parseInt(options["-c"], 10);
+   var opts = (new Troll()).options(function(troll) {
+    troll.banner('fetch net novel and package to epub.');
+    troll.opt('index',
+              'print table of contents and other info about book',
+              { type: 'string', short: 'i' });
+    troll.opt('download',
+              'download book contents and index from url, use --output to specify write out directory',
+              { type: 'string', short: 'd' });
+    troll.opt('start',
+              'start downloading from nth item',
+              { default: '1', short: 's' });
+    troll.opt('concurrency',
+              'downloading chapters by utilizing multi-connection',
+              { default: '5', short: 'n'});
+    troll.opt('package',
+              'package the write out directory to an epub ebook',
+              { type: 'string', short: 'p'});
+    troll.opt('output', 'the write out directory',
+                        { type: 'string', short:'o'});
+    troll.opt('fetch', 'fetch and print the chapter',
+              { type: 'string'});
+   });
+
+   if (typeof(opts.download) === 'string') {
+       if (typeof(opts.output) !== "string") {
+            opts.output = (function() {
+                function gen() {
+                    return 'tmp' + Math.floor(Math.random() * 10000);
                 }
-                if (options["-n"]) {
-                    concurrency = parseInt(options["-n"], 10);
-                }
-                if (stat.isDirectory()) {
-                    read_index(options["-d"], (function (index) {
-                        download_index(index, dir, begin, concurrency);
-                    }));
-                } else {
-                    console.error(dir, "is not a directory");
-                }
-            })(options["-o"]);
-       } else {
-            console.error("the output directory must be specified by -o");
+                var dir, fs = require('fs');
+                do { dir = gen(); } while (fs.existsSync(dir));
+                fs.mkdirSync(dir);
+               return dir;
+            })();
        }
-   } else if (options["-p"]) {
+
+       read_index(opts.download, (function (index) {
+           download_index(index, opts.output,
+                          parseInt(opts.start, 10),
+                          parseInt(opts.concurrency, 10));
+       }));
+   } else if (typeof(opts.index) === 'string') {
+       read_index(opts.index, print_index);
+   } else if (typeof(opts.package) === 'string') {
        (function(dir) {
             var fs = require("fs"),
                 filename = dir + "/index.json",
@@ -496,22 +482,18 @@ function main(options) {
                 (function(content) {
                     var index = JSON.parse(content),
                         out_filename;
-                    if (options["-o"]) {
-                        out_filename = options["-o"];
+                    if (typeof(opts.output) === 'string') {
+                        out_filename = opts.output;
                     }
                     package_epub(index, dir, out_filename);
                 })(fs.readFileSync(filename));
             }
-       })(options["-p"]);
-   } else if (options["-f"]) { // fetch and print chapter
-       fetch_chapter({"item": {"url" : options["-f"], "name": "test page"}});
-   } else if (options["-F"]) { // download chapter
-       fetch_chapter({"item":{"url": options["-F"], "name": "test page"}},
-               ".",
-               save_chapter);
+       })(opts.package);
+   } else if (typeof(opts.fetch) === 'string') {
+       fetch_chapter({"item": {"url" : opts.fetch, "name": "test page"}});
    } else {
        console.error("wrong arguments");
    }
 }
 
-main(getopt(process.argv));
+main(process.argv);
