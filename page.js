@@ -1,21 +1,19 @@
 #!/usr/bin/env node
 
+var Url = require('./lib/Url');
+
 var sitepart;  // the site specific module
+
 function load_sitepart(url) {
-    var urlpat = /^http(?:s)?:\/\/([a-zA-Z0-9.]+)\/(?:.*)$/,
-        domain = urlpat.exec(url);
+  var domain;
+  domain = (new Url(url)).getDomain();
 
-    if (domain === null) {
-        console.error("failed to parse url:" + url);
-        process.exit(2);
-    }
-
-    try {
-        sitepart = require('./lib/sites/' + domain[1]);
-    } catch (err) {
-        console.error('no modules found for domain: ' + domain[1], ', abort...');
-        process.exit(3);
-    }
+  try {
+      sitepart = require('./lib/sites/' + domain);
+  } catch (err) {
+      console.error('no modules found for domain: ' + domain[1], ', abort...');
+      process.exit(3);
+  }
 }
 
 /**
@@ -38,7 +36,7 @@ function http_request(url, callback) {
         (function () {
             require('request')(
                 {
-                    url: url,
+                    url: url.data(),
                     proxy: http_proxy,
                 },
                 function(error, response, html) {
@@ -55,13 +53,11 @@ function http_request(url, callback) {
 }
 
 function print_index(index) {
-    console.log("title:\t", index.title);
-    console.log("author:\t", index.author);
-    console.log("cover:\t", index.cover.src);
+    console.log("title:\t", index.title());
+    console.log("author:\t", index.author());
+    console.log("cover:\t", index.cover().src);
     console.log("==== Table of Contecnts ====");
-    index.toc.forEach(function (item) {
-        console.log(item.name, " => ", item.url);
-    });
+    index.debugPrint(console.log);
 }
 
 function read_index(url, further_operation) {
@@ -84,11 +80,7 @@ function fetch_chapter(args) {
     var url = args.item.url,
         urlparts, filename;
 
-    if (url[url.length-1] === '/') {
-        url = url.slice(0, url.length-1);
-    }
-    urlparts = url.split("/");
-    filename = urlparts[urlparts.length-1];
+    filename = (new Url(url)).getFileName();
 
     http_request(args.item.url, function (errors, window) {
         sitepart.extractor.call({
@@ -98,17 +90,17 @@ function fetch_chapter(args) {
 }
 
 function download_index(index, dir, start, concurrency, chain_func) {
-    var count = -1,
-        toc = index.toc,
-        length = toc.length,
+    var count = 0,
+        length = index.getStatistics().leafCount,
         i,
         fetch_nexts = [],
         task_count = -2,
         fs = require("fs"),
         request = require("request"),
-        proxy = process.env.http_proxy;
+        proxy = process.env.http_proxy,
+        leaf_iterator = index.getLeafIterator();
 
-    if (!chain_func) { chain_func = function() {} };
+    if (!chain_func) { chain_func = function() {}; }
 
     if (start) {
         count += (start - 1);
@@ -116,33 +108,41 @@ function download_index(index, dir, start, concurrency, chain_func) {
             concurrency = 5;
         }
     }
+    for (var i=0; i< count; i++) { leaf_iterator(); }
 
-    fs.writeFile(dir + "/index.json", JSON.stringify(index), function() {
-        console.log("write index.json");
+    // write index.json
+    fs.writeFile(dir + "/index.json", index.toJSON(), function() {
+      task_count += 1;
+      console.log("write index.json");
     });
+
+    // fetch cover picture
     (function() {
-        var req = request({url: index.cover.src, proxy: proxy });
+        var req = request({url: index.cover().src, proxy: proxy });
         var out = fs.createWriteStream(dir + "/cover.jpg");
         req.pipe(out);
-        req.on("end", function() { console.log("write cover.jpg"); });
+        req.on("end", function() {
+          console.log("write cover.jpg");
+          task_count += 1;
+        });
     })();
 
     for (i=0; i < concurrency; i++) {
         fetch_nexts[i] = (function() {
-            var index = i;
+            var _i = i;
             var args = {
-                generator : function() {return toc[++count];},
+                generator : function() { count++; return leaf_iterator(); },
                 dest: dir,
                 chain_func : function(html, filename, args) {
                     save_chapter(html, args.dest, filename);
-                    fetch_nexts[index]();
+                    fetch_nexts[_i]();
                 }
             };
 
             return function() {
                 args.item = args.generator();
                 if (args.item) {
-                    console.log("fetch ", count+1, '/', length,
+                    console.log("fetch ", count, '/', length,
                                 " : ", args.item.name);
                     fetch_chapter(args);
                 } else {
@@ -189,7 +189,7 @@ function package_ncx(index, ncx, zip) {
     a('    <meta content="0" name="dtb:maxPageNumber"/>');
     a('  </head>');
     a('  <docTitle>');
-    a('    <text>' + index.title + " -- " +  index.author + '</text>');
+    a('    <text>' + index.title() + " -- " +  index.author() + '</text>');
     a('  </docTitle>');
     a('  <navMap>');
 
@@ -220,9 +220,9 @@ function package_content_opf(index, zip) {
     a('<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="uuid_id">');
     a('  <metadata xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:calibre="http://calibre.kovidgoyal.net/2009/metadata" xmlns:dc="http://purl.org/dc/elements/1.1/">');
     a('   <meta name="cover" content="cover"/>');
-    a('   <dc:creator opf:role="aut">' + index.author + '</dc:creator>');
+    a('   <dc:creator opf:role="aut">' + index.author() + '</dc:creator>');
     a('   <dc:language>zh-CN</dc:language>');
-    a('   <dc:title>' + index.title+ '</dc:title>');
+    a('   <dc:title>' + index.title() + '</dc:title>');
     a('   <dc:date>' + (new Date()).toISOString() + '</dc:date>');
     a('  </metadata>');
 
@@ -244,8 +244,7 @@ function package_content_opf(index, zip) {
     add_chapter = (function () {
         var count = 0;
         function get_filename(url) {
-            var parts = url.split("/");
-            return parts[parts.length-1];
+          return (new Url(url)).getFileName();
         }
 
         return function(item) {
@@ -260,7 +259,7 @@ function package_content_opf(index, zip) {
            ncx.push({id: "html" + count, src : manifest_name, text: item.name });
         };
     })();
-    index.toc.forEach(function(item) {
+    index.forEachLeaf(function(item) {
         add_chapter(item);
     });
     a('  </manifest>');
@@ -273,7 +272,7 @@ function package_content_opf(index, zip) {
 
 function package_title_page(index, zip) {
     var content = [];
-    function a(str) { content.push(str); };
+    function a(str) { content.push(str); }
     a("<?xml version='1.0' encoding='utf-8'?>");
     a('<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">');
     a('    <head>');
@@ -287,8 +286,8 @@ function package_title_page(index, zip) {
     a('    <body>');
     a('        <div>');
     a('            <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="100%" height="100%" viewBox="0 0 200 160" preserveAspectRatio="none">');
-    a('                <image width="' + index.cover.width +
-                        '" height="' + index.cover.height + '" xlink:href="cover.jpg"/>');
+    a('                <image width="' + index.cover().width +
+                        '" height="' + index.cover().height + '" xlink:href="cover.jpg"/>');
     a('            </svg>');
     a('        </div>');
     a('    </body>');
@@ -307,7 +306,7 @@ function package_epub(index, dir, output) {
         zip = new jszip(),
         fs = require("fs");
 
-    if (!output) { output = index.title + ".epub"; }
+    if (!output) { output = index.title() + ".epub"; }
 
     zip.includeLocalFile = function(externalFile, manifestName) {
         var buffer = new Buffer(fs.readFileSync(dir + "/" + externalFile));
@@ -393,8 +392,8 @@ function main(argv) {
                 content;
             if (fs.existsSync(filename) && fs.statSync(filename).isFile()) {
                 (function(content) {
-                    var index = JSON.parse(content),
-                        out_filename;
+                    var index, out_filename, Index = require('./lib/Index');
+                    index = Index.loadJSON(content);
                     if (typeof(opts.output) === 'string') {
                         out_filename = opts.output;
                     }
