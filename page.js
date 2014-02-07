@@ -1,5 +1,23 @@
 #!/usr/bin/env node
 
+var sitepart;  // the site specific module
+function load_sitepart(url) {
+    var urlpat = /^http(?:s)?:\/\/([a-zA-Z0-9.]+)\/(?:.*)$/,
+        domain = urlpat.exec(url);
+
+    if (domain === null) {
+        console.error("failed to parse url:" + url);
+        process.exit(2);
+    }
+
+    try {
+        sitepart = require('./lib/sites/' + domain[1]);
+    } catch (err) {
+        console.error('no modules found for domain: ' + domain[1], ', abort...');
+        process.exit(3);
+    }
+}
+
 /**
  * This is a wrapper of the jsdom env function, which adds proxy support
  * @param {string} url - the url to be processed
@@ -47,62 +65,10 @@ function print_index(index) {
 }
 
 function read_index(url, further_operation) {
+    load_sitepart(url);
     http_request(url,
         function (errors, window) {
-            function extractNovelInfo(parentNode) {
-                var rc = {};
-                var pat = /^\s*(.+):(.+)$/;
-                for (var c = parentNode.firstChild; c !== null; c = c.nextSibling) {
-                    if (c.nodeType === window.Node.TEXT_NODE) {
-                        var tmp = pat.exec(c.data);
-                        if (tmp !== null) {
-                            var key = tmp[1];
-                            var value = tmp[2];
-                            switch (key) {
-                                case "作者":
-                                    rc.author = value; break;
-                                case "状态":
-                                    rc.status = value; break;
-                                case "简介":
-                                    rc.brief = value; break;
-                            }
-                        }
-                    }
-                }
-                return rc;
-            }
-
-            function get_toc(toc) {
-                var rc = [];
-                var list = toc.getElementsByClassName("zl");
-                for (var i = 0; i < list.length; i++) {
-                    var li = list[i];
-                    var a = li.firstChild;
-                    var text = a.firstChild.data;
-                    var link = a.href;
-                    rc.push({name: text, url: link});
-                }
-                return rc;
-            }
-
-            var document = window.document;
-            var tit = document.getElementsByClassName("tit")[0];
-            var header = extractNovelInfo(tit.parentNode);
-            var index = {
-                "title": tit.firstChild.firstChild.data,
-                "cover": (function(brother) { // search for img
-                    for (var x = brother.nextSibling; x; x = x.nextSibling) {
-                        if (x.nodeType === window.Node.ELEMENT_NODE &&
-                            x.tagName === 'IMG')
-                            return {src: x.src, width: x.width, height: x.height};
-                    }
-                })(tit),
-                "author": header.author,
-                "toc": get_toc(document.getElementsByClassName("tit")[1]
-                    .parentNode.children[1])
-            };
-            window.close();
-            further_operation(index);
+            further_operation(sitepart.indexer(window));
        });
 }
 
@@ -115,74 +81,20 @@ function save_chapter(html, destdir, filename) {
 }
 
 function fetch_chapter(args) {
-    var item = args.item,
-        dest = args.dest,
-        chain_func = args.chain_func,
-        i;
+    var url = args.item.url,
+        urlparts, filename;
 
-    http_request(
-        item.url,
-        function (errors, window) {
-            function removeNode(node) {
-                node.parentNode.removeChild(node);
-            }
-            function removeNodes(nodes) {
-                var to_delete = [];
-                for (i = 0; i < nodes.length; i++) {
-                    to_delete.push(nodes[i]);
-                }
-                for (i = 0; i < to_delete.length; i++) {
-                    removeNode(to_delete[i]);
-                }
-            }
+    if (url[url.length-1] === '/') {
+        url = url.slice(0, url.length-1);
+    }
+    urlparts = url.split("/");
+    filename = urlparts[urlparts.length-1];
 
-            var document = window.document;
-            var content = document.getElementById("content");
-            removeNodes(content.getElementsByTagName("script"));
-            removeNodes(content.getElementsByClassName("bad"));
-            removeNode(content.lastChild);
-            removeNode(content.lastChild);
-            removeNode(content.lastChild);
-            removeNode(content.lastChild);
-
-            removeNodes(content.querySelectorAll("img"));
-
-            var html = [
-        '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"',
-        '"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">',
-        '<html xmlns="http://www.w3.org/1999/xhtml">',
-        '<head>',
-        '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">',
-        '<title>',
-        item.name,
-        '</title></head>',
-        '</head>',
-        '<body>',
-        content.innerHTML,
-        '</body></html>'].join("");
-            if (!dest) {
-                console.log(html);
-            } else {
-                (function() {
-                    var filename;
-                    var url = decodeURI(item.url);
-                    var buffer = [];
-
-                    if (url[url.length-1] == '/') {
-                        url = url.slice(0, url.length - 1);
-                    }
-                    for (var i = url.length - 1; i >= 0; i--) {
-                        if (url[i] !== '/') {
-                            buffer.push(url[i]);
-                        } else {
-                            filename = buffer.reverse().join("");
-                            break;
-                        }
-                    }
-                    chain_func(html, filename, args);
-                })();
-            }
-        });
+    http_request(args.item.url, function (errors, window) {
+        sitepart.extractor.call({
+            yield: function(html) { args.chain_func(html, filename, args);}
+        }, window, args.item);
+    });
 }
 
 function download_index(index, dir, start, concurrency, chain_func) {
@@ -462,6 +374,7 @@ function main(argv) {
                 var dir, fs = require('fs');
                 do { dir = gen(); } while (fs.existsSync(dir));
                 fs.mkdirSync(dir);
+                console.log("output to " + dir);
                return dir;
             })();
        }
@@ -490,9 +403,14 @@ function main(argv) {
             }
        })(opts.package);
    } else if (typeof(opts.fetch) === 'string') {
-       fetch_chapter({"item": {"url" : opts.fetch, "name": "test page"}});
+       load_sitepart(opts.fetch);
+       fetch_chapter({
+           item: {url : opts.fetch, name: "test page"},
+           chain_func : function(html) { console.log(html);}
+       });
    } else {
        console.error("wrong arguments");
+       process.exit(1);
    }
 }
 
