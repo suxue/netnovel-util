@@ -11,7 +11,7 @@ function load_sitepart(url) {
   try {
       sitepart = require('./lib/sites/' + domain);
   } catch (err) {
-      console.error('no modules found for domain: ' + domain[1], ', abort...');
+      console.error('no modules found for domain: ' + domain + ',abort...');
       process.exit(3);
   }
 }
@@ -55,7 +55,9 @@ function http_request(url, callback) {
 function print_index(index) {
     console.log("title:\t", index.title());
     console.log("author:\t", index.author());
-    console.log("cover:\t", index.cover().src);
+    if (index.cover()) {
+      console.log("cover:\t", index.cover().src);
+    }
     console.log("==== Table of Contecnts ====");
     index.debugPrint(console.log);
 }
@@ -94,7 +96,7 @@ function download_index(index, dir, start, concurrency, chain_func) {
         length = index.getStatistics().leafCount,
         i,
         fetch_nexts = [],
-        task_count = -2,
+        task_count = -1,
         fs = require("fs"),
         request = require("request"),
         proxy = process.env.http_proxy,
@@ -117,15 +119,18 @@ function download_index(index, dir, start, concurrency, chain_func) {
     });
 
     // fetch cover picture
-    (function() {
-        var req = request({url: index.cover().src, proxy: proxy });
-        var out = fs.createWriteStream(dir + "/cover.jpg");
-        req.pipe(out);
-        req.on("end", function() {
-          console.log("write cover.jpg");
-          task_count += 1;
-        });
-    })();
+    if (index.cover()) {
+      task_count -= 1;
+      (function() {
+          var req = request({url: index.cover().src, proxy: proxy });
+          var out = fs.createWriteStream(dir + "/cover.jpg");
+          req.pipe(out);
+          req.on("end", function() {
+            console.log("write cover.jpg");
+            task_count += 1;
+          });
+      })();
+    }
 
     for (i=0; i < concurrency; i++) {
         fetch_nexts[i] = (function() {
