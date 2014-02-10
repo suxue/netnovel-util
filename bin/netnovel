@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-var Url = require('./lib/Url');
+var Url = require('../lib/Url');
 
 var sitepart;  // the site specific module
 
@@ -9,7 +9,7 @@ function load_sitepart(url) {
   domain = (new Url(url)).getDomain();
 
   try {
-      sitepart = require('./lib/sites/' + domain);
+      sitepart = require('../lib/sites/' + domain);
   } catch (err) {
       console.error('no modules found for domain: ' + domain + ',abort...');
       process.exit(3);
@@ -397,7 +397,7 @@ function main(argv) {
                 content;
             if (fs.existsSync(filename) && fs.statSync(filename).isFile()) {
                 (function(content) {
-                    var index, out_filename, Index = require('./lib/Index');
+                    var index, out_filename, Index = require('../lib/Index');
                     index = Index.loadJSON(content);
                     if (typeof(opts.output) === 'string') {
                         out_filename = opts.output;
