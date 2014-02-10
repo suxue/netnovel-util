@@ -1,3 +1,4 @@
+* refactor command line parsing by using 'commander'
 * abstract http request.
 * fetch index from separate web pages.
 * more storage backends for metadata and data downloaded.
