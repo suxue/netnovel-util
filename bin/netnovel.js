@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * This is a wrapper of the jsdom env function, which adds proxy support
  * @param {string} url - the url to be processed
@@ -94,7 +92,7 @@ function download_index(index, dir, start, concurrency, chain_func) {
             concurrency = 5;
         }
     }
-    for (var i=0; i< count; i++) { leaf_iterator(); }
+    for (i=0; i< count; i++) { leaf_iterator(); }
 
     // write index.json
     fs.writeFile(dir + "/index.json", index.toJSON(), function() {

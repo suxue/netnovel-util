@@ -3,7 +3,7 @@ all: lint test
 test:
 	@mocha
 cov:
-	_mocha  -r blanket -R html-cov |firefox "data:text/html;base64,$$(base64 -w 0 <&0)"
+	@_mocha  -r blanket -R html-cov |firefox "data:text/html;base64,$$(base64 -w 0 <&0)"
 
 debug:
 	-killall  node
@@ -12,6 +12,9 @@ debug:
 	ni google-chrome http://127.0.0.1:8080/debug?port=5858
 
 lint:
-	jshint lib/ bin/ test/
+	@echo run jshint ...
+	@jshint lib/ bin/ test/
+#@echo run closure compiler ...
+#@ccjs `find . -name '*.js' ` --language_in=ECMASCRIPT5_STRICT >/dev/null
 
 .PHONY: all test cov debug lint
