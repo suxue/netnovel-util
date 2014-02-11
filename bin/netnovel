@@ -444,24 +444,26 @@ function main(argv) {
     program.command(k).description(v.description);
   });
 
-  if (argv.length === 2 ||
-      (argv.length >= 3
-       && !(commands.hasOwnProperty(argv[2])))) {
+  if (argv.length === 2) {
      program.help();
-   } else {
-     (function(cmd) {
-       argv = argv.slice(0, 2).concat(argv.slice(3));
-       commands[cmd].setup();
-       program.usage(cmd + " [Options]");
+  } else if (commands.hasOwnProperty(argv[2])) {
+    (function(cmd) {
+      argv = argv.slice(0, 2).concat(argv.slice(3));
+      commands[cmd].setup();
+      program.usage(cmd + " [Options]");
 
-       if (argv.length === 2) {
-         program.help();
-       } else {
-         program.parse(argv);
-         commands[cmd].action(program);
-       }
-     })(argv[2]);
-   }
+      if (argv.length === 2) {
+        program.help();
+      } else {
+        program.parse(argv);
+        commands[cmd].action(program);
+      }
+    })(argv[2]);
+  } else if (argv.length === 3 && argv[2][0] === '-') {
+    program.parse(argv);
+  } else {
+    console.error("error: unknown subcommand: " + argv[2]);
+  }
 }
 
 main(process.argv);
