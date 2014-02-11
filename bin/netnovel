@@ -328,96 +328,140 @@ function package_epub(index, dir, output) {
     console.log("write " + output);
 }
 
-var help_message = (function() {
-    var myname = process.argv[1].split("/");
-    myname = myname[myname.length - 1];
-    return "Usage: " +  myname + " [ options ]\n" +
-"OPTIONS\n" +
-"  -l url          fetch url (index page) and print table of contents\n" +
-"  -d url          fetch url (index page) download associated pages\n" +
-"  -o filename     specify output filename/dirname\n" +
-"  -c n            start downloading from the nTH item\n" +
-"  -n n            specify the concurrency when downloading\n" +
-"  -p dir          package the downloaded files into a single epub file\n" +
-"  -?|-h           print this message\n";
-})();
-
-
 function main(argv) {
-   var Troll = require('troll-opt').Troll;
+  var program = require('commander'),
+      commands = {};
 
-   var opts = (new Troll()).options(function(troll) {
-    troll.banner('fetch net novel and package to epub.');
-    troll.opt('index',
-              'print table of contents and other info about book',
-              { type: 'string', short: 'i' });
-    troll.opt('download',
-              'download book contents and index from url, use --output to specify write out directory',
-              { type: 'string', short: 'd' });
-    troll.opt('start',
-              'start downloading from nth item',
-              { default: '1', short: 's' });
-    troll.opt('concurrency',
-              'downloading chapters by utilizing multi-connection',
-              { default: '5', short: 'n'});
-    troll.opt('package',
-              'package the write out directory to an epub ebook',
-              { type: 'string', short: 'p'});
-    troll.opt('output', 'the write out directory',
-                        { type: 'string', short:'o'});
-    troll.opt('fetch', 'fetch and print the chapter',
-              { type: 'string'});
-   });
+  program
+   .version("0.0.1")
+   .usage("Command [Options]");
+  program._name = "netnovel-util";
 
-   if (typeof(opts.download) === 'string') {
-       if (typeof(opts.output) !== "string") {
-            opts.output = (function() {
-                function gen() {
-                    return 'tmp' + Math.floor(Math.random() * 10000);
-                }
-                var dir, fs = require('fs');
-                do { dir = gen(); } while (fs.existsSync(dir));
-                fs.mkdirSync(dir);
-                console.log("output to " + dir);
-               return dir;
-            })();
-       }
+  function error(msg) {
+    console.error("error: " + program._name + " " + this.name +  ": " + msg);
+    process.exit(1);
+  }
 
-       read_index(opts.download, (function (index) {
-           download_index(index, opts.output,
-                          parseInt(opts.start, 10),
-                          parseInt(opts.concurrency, 10));
-       }));
-   } else if (typeof(opts.index) === 'string') {
-       read_index(opts.index, print_index);
-   } else if (typeof(opts.package) === 'string') {
-       (function(dir) {
+  function check_existstence(prop) {
+    if (!program[prop]) {
+      error("--" + prop + " is required");
+    }
+  }
+
+  commands.index = {
+    name: "index",
+    description: 'fetch and print book index and metadata',
+    setup: function() {
+      program.option("-u, --url [url]", "the url to be indexed");
+    },
+    action: function() {
+      read_index(program.url, print_index);
+    },
+  };
+
+  commands.download = {
+    name: "index",
+    description: "download chapters from index",
+    setup: function() {
+      program
+        .option("-u, --url [url]", "the url of index")
+        .option("-o, --out [dir]", "the target directory of fetched files")
+        .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
+        .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5");
+    },
+    action: function() {
+      var fs = require("fs"),
+          stat;
+
+      check_existstence("out");
+      check_existstence("url");
+      if (!fs.existsSync(program.out)) {
+        error("folder " + program.out + " does not exist");
+      } else {
+        stat = fs.statSync(program.out);
+        if (!stat.isDirectory()) {
+          error(program.out + " is not a directory");
+        } else {
+           read_index(program.url, (function (index) {
+               download_index(index, program.out,
+                              parseInt(program.start, 10),
+                              parseInt(program.concurrency, 10));
+           }));
+        }
+      }
+    }
+  };
+
+  commands.package = {
+    name: "package",
+    description: "package chapters into single epub file",
+    setup: function() {
+      program
+        .option("-i, --index [dir]", "the directory contains index.json and chapters")
+        .option("-o, --out [epub]", "the output epub filename");
+    },
+    action: function() {
+            check_existstence("index");
+
             var fs = require("fs"),
-                filename = dir + "/index.json",
-                content;
-            if (fs.existsSync(filename) && fs.statSync(filename).isFile()) {
-                (function(content) {
-                    var index, out_filename, Index = require('../lib/Index');
-                    index = Index.loadJSON(content);
-                    if (typeof(opts.output) === 'string') {
-                        out_filename = opts.output;
-                    }
-                    package_epub(index, dir, out_filename);
-                })(fs.readFileSync(filename));
+                filename = program.index + "/index.json",
+                index;
+
+            if (!fs.existsSync(filename) || !fs.statSync(filename).isFile()) {
+              error("cannot read file: " + program.index);
             }
-       })(opts.package);
-   } else if (typeof(opts.fetch) === 'string') {
-       load_sitepart(opts.fetch);
-       fetch_chapter({
-           item: {url : opts.fetch, name: "test page"},
-           chain_func : function(html) { console.log(html);}
-       });
+
+            index = require('../lib/Index').loadJSON(fs.readFileSync(filename));
+            package_epub(index, program.index, program.out);
+    }
+  };
+
+  commands.fetch = {
+    name: 'fetch',
+    description: "fetch single chapter and present its content",
+    setup: function() {
+      program.option("-u, --url [url]", "the webpage to be fetched");
+    },
+    action: function() {
+      check_existstence("url");
+      load_sitepart(program.url);
+      fetch_chapter({
+        item: {url : program.url, name: "test page"},
+        chain_func : function(html) { console.log(html);}
+      });
+    }
+  };
+
+  function forEach(obj, callback)  {
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k)) {
+        callback(k, obj[k]);
+      }
+    }
+  }
+
+  forEach(commands, function(k, v) {
+    program.command(k).description(v.description);
+  });
+
+  if (argv.length === 2 ||
+      (argv.length >= 3
+       && !(commands.hasOwnProperty(argv[2])))) {
+     program.help();
    } else {
-       console.error("wrong arguments");
-       process.exit(1);
+     (function(cmd) {
+       argv = argv.slice(0, 2).concat(argv.slice(3));
+       commands[cmd].setup();
+       program.usage(cmd + " [Options]");
+
+       if (argv.length === 2) {
+         program.help();
+       } else {
+         program.parse(argv);
+         commands[cmd].action(program);
+       }
+     })(argv[2]);
    }
 }
 
-
-process.argv[1] = "netnovel-util";
 main(process.argv);
