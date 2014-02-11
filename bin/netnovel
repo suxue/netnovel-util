@@ -1,21 +1,5 @@
 #!/usr/bin/env node
 
-var Url = require('../lib/Url');
-
-var sitepart;  // the site specific module
-
-function load_sitepart(url) {
-  var domain;
-  domain = (new Url(url)).getDomain();
-
-  try {
-      sitepart = require('../lib/sites/' + domain);
-  } catch (err) {
-      console.error('no modules found for domain: ' + domain + ',abort...');
-      process.exit(3);
-  }
-}
-
 /**
  * This is a wrapper of the jsdom env function, which adds proxy support
  * @param {string} url - the url to be processed
@@ -63,11 +47,10 @@ function print_index(index) {
 }
 
 function read_index(url, further_operation) {
-    load_sitepart(url);
-    http_request(url,
-        function (errors, window) {
-            further_operation(sitepart.indexer(window));
-       });
+  var Url = require('../lib/Url');
+    http_request(url, function (errors, window) {
+      further_operation((new Url(url)).getScript().indexer(window));
+    });
 }
 
 function save_chapter(html, destdir, filename) {
@@ -80,12 +63,13 @@ function save_chapter(html, destdir, filename) {
 
 function fetch_chapter(args) {
     var url = args.item.url,
+        Url = require('../lib/Url'),
         urlparts, filename;
 
     filename = (new Url(url)).getFileName();
 
     http_request(args.item.url, function (errors, window) {
-        sitepart.extractor.call({
+        (new Url(args.item.url)).getScript().extractor.call({
             yield: function(html) { args.chain_func(html, filename, args);}
         }, window, args.item);
     });
@@ -247,7 +231,7 @@ function package_content_opf(index, zip) {
 
     // add chapters
     add_chapter = (function () {
-        var count = 0;
+        var count = 0, Url = require('../lib/Url');
         function get_filename(url) {
           return (new Url(url)).getFileName();
         }
@@ -329,13 +313,14 @@ function package_epub(index, dir, output) {
 }
 
 function main(argv) {
+  // for 'node debug'
+  if (argv[1] === "debug") {
+    argv = argv.slice(0,1).concat(argv.slice(2));
+  }
+
   var program = require('commander'),
       commands = {};
 
-  program
-   .version("0.0.1")
-   .usage("Command [Options]");
-  program._name = "netnovel-util";
 
   function error(msg) {
     console.error("error: " + program._name + " " + this.name +  ": " + msg);
@@ -348,8 +333,12 @@ function main(argv) {
     }
   }
 
-  commands.index = {
-    name: "index",
+  function define_subcommand(cmd, obj) {
+    obj.name = cmd;
+    commands[cmd] = obj;
+  }
+
+  define_subcommand('index', {
     description: 'fetch and print book index and metadata',
     setup: function() {
       program.option("-u, --url [url]", "the url to be indexed");
@@ -357,10 +346,9 @@ function main(argv) {
     action: function() {
       read_index(program.url, print_index);
     },
-  };
+  });
 
-  commands.download = {
-    name: "index",
+  define_subcommand('download', {
     description: "download chapters from index",
     setup: function() {
       program
@@ -390,10 +378,9 @@ function main(argv) {
         }
       }
     }
-  };
+  });
 
-  commands.package = {
-    name: "package",
+  define_subcommand('package', {
     description: "package chapters into single epub file",
     setup: function() {
       program
@@ -414,23 +401,21 @@ function main(argv) {
             index = require('../lib/Index').loadJSON(fs.readFileSync(filename));
             package_epub(index, program.index, program.out);
     }
-  };
+  });
 
-  commands.fetch = {
-    name: 'fetch',
+  define_subcommand('fetch', {
     description: "fetch single chapter and present its content",
     setup: function() {
       program.option("-u, --url [url]", "the webpage to be fetched");
     },
     action: function() {
       check_existstence("url");
-      load_sitepart(program.url);
       fetch_chapter({
         item: {url : program.url, name: "test page"},
         chain_func : function(html) { console.log(html);}
       });
     }
-  };
+  });
 
   function forEach(obj, callback)  {
     for (var k in obj) {
@@ -439,6 +424,11 @@ function main(argv) {
       }
     }
   }
+
+  program
+   .version("0.0.1")
+   .usage("Command [Options]");
+  program._name = "netnovel-util";
 
   forEach(commands, function(k, v) {
     program.command(k).description(v.description);
@@ -464,6 +454,6 @@ function main(argv) {
   } else {
     console.error("error: unknown subcommand: " + argv[2]);
   }
-}
+} /// end of main(argv)
 
 main(process.argv);
