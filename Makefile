@@ -1,4 +1,5 @@
-all: lint test
+lint:
+	@jshint lib/ bin/ test/ | head -n -3
 
 test:
 	@mocha
@@ -11,9 +12,6 @@ debug:
 	node-inspector &
 	ni google-chrome http://127.0.0.1:8080/debug?port=5858
 
-lint:
-	@echo run jshint ...
-	@jshint lib/ bin/ test/
 #@echo run closure compiler ...
 #@ccjs `find . -name '*.js' ` --language_in=ECMASCRIPT5_STRICT >/dev/null
 

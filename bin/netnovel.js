@@ -455,3 +455,5 @@ function main(argv) {
 } /// end of main(argv)
 
 main(process.argv);
+
+// vim: set errorformat=%f\:\ line\ %l\\,\ col\ %c\\,%m:
