@@ -1,3 +1,5 @@
+all: lint test
+
 test:
 	@mocha
 cov:
@@ -9,4 +11,7 @@ debug:
 	node-inspector &
 	ni google-chrome http://127.0.0.1:8080/debug?port=5858
 
-.PHONY: test
+lint:
+	jshint lib/ bin/ test/
+
+.PHONY: all test cov debug lint
