@@ -1,12 +1,7 @@
-var should = require('chai').should();
+var should = require('chai').should(),
+    Index = require('../lib/Index');
 
 describe('Index', function(){
-  var Index = require('../lib/Index');
-
-  it('load the library', function() {
-    Index = require('../lib/Index');
-    should.exist(Index);
-  });
 
   describe("simple actions", function() {
     var index = {};
@@ -91,4 +86,4 @@ describe('Index', function(){
     });
   });
 
-})
+});
