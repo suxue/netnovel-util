@@ -4,43 +4,72 @@ var should = require('chai').should(),
 
 describe('Context', function(){
 
-  describe("example 1", function() {
+  describe("features", function() {
     var con = new Context();
     it("initial state check", function() {
-      con.getStackDepth().should.equal(0);
-
+      con.depth().should.equal(0);
     });
 
     it('simple argument passing (exec)', function() {
-      var output;
-      function pass(input) { output = input; }
-
-      con.pushFrame([12345]).exec(pass);
-      assert.equal(output, 12345);
-      con.popFrame();
-    });
-
-    it('simple argument passing (apply)', function() {
-      var output;
-      function pass(input) { output = input; }
-
-      con.apply(pass, [12345]);
-      assert.equal(output, 12345);
-      con.popFrame();
-    });
-
-    it('simple return value reteriving', function() {
-      var count = 100, total = 0;
-      for (var i=0; i <= count; i++) {
-        con.pushFrame([i]);
+      function pass(a, b, c) {
+        a.should.equal("hello");
+        b.should.equal("world");
+        c.should.equal("meet");
       }
-      function sum(o) {
-        total += o;
-      }
-      for (i=0; i <= 100; i++) { con.exec(sum).popFrame(); }
-      total.should.equal(5050);
+
+      con.push("hello", "world", "meet").exec(function() {
+        var args = this.argv(3);
+        pass.apply(null, args);
+        this.depth().should.equal(0);
+      });
     });
 
+    it('summation test', function() {
+      con.push(0);
+      for (var i=0; i <= 100; i++) {
+        con.push(i);
+        con.exec(function() {
+          var args = this.argv(2);
+          this.push(args[0] + args[1]);
+        });
+      }
+      con.pop().should.equal(5050);
+      con.depth().should.equal(0);
+    });
+
+    it('summation by chain', function() {
+      function calculate() {
+        var args = this.argv(2);
+        this.push(args[0] + args[1]);
+      }
+      for (var i=0; i <100; i++) {
+        con.push(i);
+        con.chain(calculate);
+      }
+      con.push(i);
+      con.fire();
+      con.pop().should.equal(5050);
+      con.depth().should.equal(0);
+    });
+
+    it('early return', function() {
+      function add() {
+        var i = this.at(-1);
+        if (i % 7 === 0) {
+          this.move(0, this.length());
+        } else {
+          this.replace(-1, i+1);
+        }
+      }
+      con.clear();
+      for (var i=0; i < 100; i++) {
+        con.chain(add);
+      }
+
+      con.push(1);
+      con.fire();
+      con.pop().should.equal(7);
+    });
   });
 
 });
