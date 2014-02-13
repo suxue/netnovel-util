@@ -1,3 +1,22 @@
+// vim: set ft=javascript:
 {
-  "loopfunc": true
+  "loopfunc": true,
+  "eqeqeq": true,
+  "latedef": true,
+  "indent": 2,
+  "newcap": true,
+  "nonew": true,
+  "undef": true,
+  "unused": true,
+  "trailing": true,
+  "node": true,
+  "globals"   : {
+    /* MOCHA */
+    "describe"   : false,
+    "it"         : false,
+    "before"     : false,
+    "beforeEach" : false,
+    "after"      : false,
+    "afterEach"  : false
+  }
 }

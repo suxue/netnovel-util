@@ -23,7 +23,7 @@ function http_request(url, callback) {
           proxy: http_proxy,
         },
         function(error, response, html) {
-          if (!error && response.statusCode == 200) {
+          if (!error && response.statusCode === 200) {
             parse_dom(html);
           } else {
             throw error;
@@ -63,7 +63,7 @@ function save_chapter(html, destdir, filename) {
 function fetch_chapter(args) {
   var url = args.item.url,
       Url = require('../lib/Url'),
-      urlparts, filename;
+      filename;
 
   filename = (new Url(url)).getFileName();
 
@@ -135,7 +135,7 @@ function download_index(index, dir, start, concurrency, chain_func) {
           fetch_chapter(args);
         } else {
           task_count += 1;
-          if (task_count == concurrency) {
+          if (task_count === concurrency) {
             console.log('\n  fetching complete, writen out to: ' + dir);
             chain_func();
           }
@@ -195,7 +195,6 @@ function package_ncx(index, ncx, zip) {
 }
 
 function package_content_opf(index, zip) {
-  var i;
   var content = [];
   var spine = [];
   var add_chapter;
@@ -290,8 +289,8 @@ function package_title_page(index, zip) {
  * @param {string} output - output file name
  */
 function package_epub(index, dir, output) {
-  var jszip = require('jszip'),
-      zip = new jszip(),
+  var Jszip = require('jszip'),
+      zip = new Jszip(),
       fs = require("fs");
 
   if (!output) { output = index.title() + ".epub"; }

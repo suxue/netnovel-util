@@ -1,7 +1,8 @@
-var should = require('chai').should(),
-    assert = require('assert'),
-    Context = require('../lib/Context');
+var Context = require('../lib/Context');
 
+require('chai').should(),
+
+// jshint expr:true
 describe('Context', function(){
 
   describe("features", function() {
