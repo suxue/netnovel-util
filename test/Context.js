@@ -1,3 +1,5 @@
+/*global describe, it */
+
 var Context = require('../lib/Context');
 
 require('chai').should(),

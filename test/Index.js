@@ -1,3 +1,5 @@
+/*global describe, it */
+
 var should = require('chai').should(),
     Index = require('../lib/Index');
 
