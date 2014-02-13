@@ -37,39 +37,46 @@ describe('Context', function(){
       con.depth().should.equal(0);
     });
 
-    it('summation by chain', function() {
+    describe('summation by callback', function() {
+      var length = 100, sum = 5050;
       function calculate() {
         var args = this.argv(2);
-        this.push(args[0] + args[1]);
+        this.yield(args[0] + args[1]);
       }
-      for (var i=0; i <100; i++) {
-        con.push(i);
-        con.chain(calculate);
-      }
-      con.push(i);
-      con.fire();
-      con.pop().should.equal(5050);
-      con.depth().should.equal(0);
-    });
 
-    it('early return', function() {
-      function add() {
-        var i = this.at(-1);
-        if (i % 7 === 0) {
-          this.move(0, this.length());
-        } else {
-          this.replace(-1, i+1);
+      function final() {
+        this.pop().should.equal(sum);
+        this.depth().should.equal(0);
+      }
+
+
+      it('set generator', function() {
+        for (var i=length; i >= 0; i--) {
+          con.push(i);
         }
-      }
-      con.clear();
-      for (var i=0; i < 100; i++) {
-        con.chain(add);
-      }
 
-      con.push(1);
-      con.fire();
-      con.pop().should.equal(7);
-    });
+        con.setGenerator(function() {
+          var count = 0;
+          return (function() {
+            if (count++ < length) {
+              return calculate;
+            }
+          });
+        }());
+        con.appendGenerator(function() { return final; });
+        con.fire();
+      });
+
+      it('set callback', function() {
+        for (var i=0; i <= length; i++) {
+          con.push(i);
+        }
+
+        con.setCallback(calculate, length);
+        con.appendCallback(final);
+        con.fire();
+      });
+    }); // summation by callback
   });
 
 });
