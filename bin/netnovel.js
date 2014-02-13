@@ -5,7 +5,8 @@
  */
 
 function http_request(url, callback) {
-    var http_proxy = process.env.http_proxy;
+    var http_proxy = process.env.http_proxy,
+        Url = require('../lib/Url');
 
     function parse_dom(input) {
         require("jsdom").env(input,  {features: false} , callback);
@@ -18,7 +19,7 @@ function http_request(url, callback) {
         (function () {
             require('request')(
                 {
-                    url: url.data(),
+                    url: (new Url(url)).data(),
                     proxy: http_proxy,
                 },
                 function(error, response, html) {
