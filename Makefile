@@ -14,7 +14,10 @@ debug:
 	node-inspector &
 	ni google-chrome http://127.0.0.1:8080/debug?port=5858
 
+indent:
+	@find . -type f -name '*.js' -exec ./script/indent '{}' ';'
+
 #@echo run closure compiler ...
 #@ccjs `find . -name '*.js' ` --language_in=ECMASCRIPT5_STRICT >/dev/null
 
-.PHONY: all test cov debug lint
+.PHONY: all test cov debug lint indent

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+scriptdir="`dirname $0`"
+echo "indent $1 ..."
+emacs -batch "$1" --script "$scriptdir"/elisp/emacs-format-file.el -f emacs-format-function 2>/dev/null
