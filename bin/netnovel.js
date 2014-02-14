@@ -4,7 +4,7 @@ process.on('uncaughtException', function(err) {
   if (typeof err === 'object' && typeof err.name === 'string') {
     console.trace('UncaughtException: ' + err.name);
     if (err.message) {
-      console.log('\nMessage: ' + err.message)
+      console.log('\nMessage: ' + err.message);
     }
   } else {
     console.log('dumpError :: argument is not an object');
