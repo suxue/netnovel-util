@@ -1,7 +1,7 @@
 all: lint test
 
 lint:
-	@jshint lib/ bin/ test/ | head -n -2
+	@jshint lib/ bin/ test/ | head -n -2 ; env test $${PIPESTATUS[0]} -eq 0
 
 test:
 	@mocha
