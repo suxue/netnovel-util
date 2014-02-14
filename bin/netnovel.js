@@ -317,6 +317,7 @@ function main(argv) {
   }
 
   var program = require('commander'),
+      package_json = require('../package.json'),
       commands = {};
 
 
@@ -424,9 +425,9 @@ function main(argv) {
   }
 
   program
-    .version("0.0.1")
+    .version(package_json.version)
     .usage("Command [Options]");
-  program._name = "netnovel-util";
+  program._name = package_json.name;
 
   forEach(commands, function(k, v) {
     program.command(k).description(v.description);

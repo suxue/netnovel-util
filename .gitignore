@@ -1,5 +1,6 @@
 lib/sites/lfs7.js
 sync.sh
 out/
+node_modules/
 .tern-port
 *~

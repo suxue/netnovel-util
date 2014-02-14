@@ -1,0 +1,38 @@
+{
+  "name": "netnovel-util",
+  "description": "Utility for probing, downloading and packaging netnovels",
+  "version": "0.0.1",
+  "bugs": {
+    "url": "https://github.com/suxue/netnovel-util/issues"
+  },
+  "author": {
+    "name": "Hao Fei",
+    "email": "mrfeihao@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:suxue/netnovel-util.git"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "test/",
+    "README.md",
+    "Makefile",
+    "TODO",
+    "LICENSE"
+  ],
+  "readmeFilename": "README.md",
+  "dependencies": {
+    "commander": "2.0.0",
+    "jsdom": "0.6.5",
+    "request": "2.33.0",
+    "jszip": "0.2.1"
+  },
+  "devDependencies": {
+    "mocha": "1.17.1",
+    "chai": "1.9.0",
+    "jshint": "latest"
+  }
+}
+

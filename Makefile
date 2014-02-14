@@ -1,12 +1,12 @@
 all: lint test
 
 lint:
-	@jshint lib/ bin/ test/ | head -n -2 ; env test $${PIPESTATUS[0]} -eq 0
+	@./node_modules/jshint/bin/jshint lib/ bin/ test/ | head -n -2 ; env test $${PIPESTATUS[0]} -eq 0
 
 test:
-	@mocha
+	@./node_modules/mocha/bin/mocha
 cov:
-	@_mocha  -r blanket -R html-cov |firefox "data:text/html;base64,$$(base64 -w 0 <&0)"
+	@./node_modules/mocha/bin/_mocha  -r blanket -R html-cov |firefox "data:text/html;base64,$$(base64 -w 0 <&0)"
 
 debug:
 	-killall  node
