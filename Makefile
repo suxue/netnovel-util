@@ -1,17 +1,18 @@
 all: lint test
 
-lint:
+lint: build
 	@./node_modules/.bin/jshint lib/ bin/ test/ | head -n -2 ; env test $${PIPESTATUS[0]} -eq 0
 
-test:
+test: build
 	@./node_modules/.bin/mocha -i -g '#async#'
 
-alltest: test
+alltest: build
 	@./node_modules/.bin/mocha
-cov:
+
+cov: build
 	@./node_modules/.bin/_mocha  -r blanket -R html-cov |firefox "data:text/html;base64,$$(base64 -w 0 <&0)"
 
-debug:
+debug: build
 	-killall  node
 	node --debug-brk ./bin/netnovel &
 	node-inspector &
@@ -20,7 +21,7 @@ debug:
 indent:
 	@find bin/ lib/ test/ -type f -name '*.js' -exec ./script/indent '{}' ';'
 
-#@echo run closure compiler ...
-#@ccjs `find . -name '*.js' ` --language_in=ECMASCRIPT5_STRICT >/dev/null
+build:
+	@if [[ ! -d node_modules ]]; then npm install; fi
 
 .PHONY: all test cov debug lint indent
