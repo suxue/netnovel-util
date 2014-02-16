@@ -1,9 +1,12 @@
-all: lint test
+all: lint alltest
 
 lint:
 	@./node_modules/.bin/jshint lib/ bin/ test/ | head -n -2 ; env test $${PIPESTATUS[0]} -eq 0
 
 test:
+	@./node_modules/.bin/mocha -i -g '#async#'
+
+alltest: test
 	@./node_modules/.bin/mocha
 cov:
 	@./node_modules/.bin/_mocha  -r blanket -R html-cov |firefox "data:text/html;base64,$$(base64 -w 0 <&0)"
