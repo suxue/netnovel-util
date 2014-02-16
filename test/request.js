@@ -6,9 +6,9 @@ var Context = require("../lib/Context");
 var http = require('http');
 
 describe("request", function() {
-  var con = new Context();
 
   it('#async#fetch string', function(done) {
+    var con = new Context();
     var message = "okay";
     var port = 52180;
     var server = http.createServer(function (req, res) {
@@ -28,6 +28,28 @@ describe("request", function() {
       done();
     });
 
+    con.fire();
+  });
+
+  it('#async#fetch html', function(done) {
+    var con = new Context();
+    var title="apache";
+    var body = "<html><head><title>" + title +
+      "</title><body>It Works!</body></html>";
+    var port = 52181;
+    var server = http.createServer(function (req, res) {
+      res.writeHead(200, {'Content-Type': 'text/html'});
+      res.end(body);
+    });
+    server.listen(port);
+
+    con.appendCallback( request.parse_dom('localhost:' + port) );
+    con.appendCallback(function() {
+      var rc = this.pop();
+      rc.document.title.should.equal('apache');
+      server.close();
+      done();
+    });
     con.fire();
   });
 });

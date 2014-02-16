@@ -1,4 +1,4 @@
-all: lint alltest
+all: lint test
 
 lint:
 	@./node_modules/.bin/jshint lib/ bin/ test/ | head -n -2 ; env test $${PIPESTATUS[0]} -eq 0
