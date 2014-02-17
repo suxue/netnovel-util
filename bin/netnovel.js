@@ -1,11 +1,12 @@
+var assert = require('../lib/assert');
 
 Error.stackTraceLimit = Infinity;
 process.on('uncaughtException', function(err) {
   if (typeof err === 'object' && typeof err.name === 'string') {
-    console.trace('UncaughtException: ' + err.name);
     if (err.message) {
       console.log('\nMessage: ' + err.message);
     }
+    console.log(err.stack);
   } else {
     console.log('dumpError :: argument is not an object');
   }
@@ -48,7 +49,8 @@ function http_request(url, callback) {
   }
 }
 
-function print_index(index) {
+function print_index() {
+  var index = this.pop();
   console.log("title:\t", index.title());
   console.log("author:\t", index.author());
   if (index.cover()) {
@@ -58,11 +60,16 @@ function print_index(index) {
   index.debugPrint(console.log);
 }
 
-function read_index(url, further_operation) {
+function read_index() {
   var Url = require('../lib/Url');
-  http_request(url, function (errors, window) {
-    further_operation((new Url(url)).getScript().indexer(window));
-  });
+  var url = this.pop();
+  assert(url instanceof Url);
+
+  this.insertCallback(
+    require('../lib/request').parse_dom(url.data()),
+    url.getScript().indexer
+  );
+  this.yield();
 }
 
 function save_chapter(html, destdir, filename) {
@@ -356,7 +363,13 @@ function main(argv) {
       program.option("-u, --url [url]", "the url to be indexed");
     },
     action: function() {
-      read_index(program.url, print_index);
+      var Context = require('../lib/Context');
+      var con = new Context();
+      var Url = require('../lib/Url');
+      con.push(new Url(program.url))
+         .appendCallback(read_index)
+         .appendCallback(print_index)
+         .fire();
     },
   });
 
