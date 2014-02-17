@@ -1,0 +1,15 @@
+doctype xml
+ncx(xmlns="http://www.daisy.org/z3986/2005/ncx/",
+    version="2005-1" xml:lang="en")
+  head
+    meta(content="2", name="dtb:depth")
+    meta(content="0", name="dtb:totalPageCount")
+    meta(content="0", name="dtb:maxPageNumber")
+  docTitle
+    text= title + '--' + author
+  navMap
+    each item in toc
+      navPoint(class="chapter" id=item.id  playOrder=item.index)
+        navLabel
+          text= item.text
+        content(src=item.src)

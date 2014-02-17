@@ -1,0 +1,20 @@
+doctype xml
+package(xmlns="http://www.idpf.org/2007/opf", version="2.0", unique-identifier="uuid")
+  metadata(xmlns:xsl="http://www.w3.org/2001/XMLSchema-instance",
+           xmlns:opf="http://www.idpf.org/2007/opf",
+           xmlns:dcterms="http://purl.org/dc/terms/",
+           xmlns:dc="http://purl.org/dc/elements/1.1/")
+    dc:description=brief
+    dc:language zh-CN
+    dc:title=title
+    meta(name="cover",content="cover")
+  manifest
+    item(href="cover.jpg", media-type="image/jpeg", id="cover")
+    item(href="titlepage.xhtml", media-type="application/xhtml+xml", id="titlepage")
+    item(href="toc.ncx", media-type="application/x-dtbncx+xml", id="ncx")
+    each i in manifest
+      item(href=i.href, id=i.id, media-type="application/xhtml+xml")
+  spine(toc="ncx")
+    itemref(idref="titlepage")
+    each i in spine
+      itemref(idref=i)
