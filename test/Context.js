@@ -80,6 +80,40 @@ describe('Context', function(){
         con.fire();
       });
     }); // summation by callback
+
+    it("process the calling chain", function(done) {
+      var con = new Context();
+      // [ 27500 * 3 - 18307 + 12147 - 1420 + 28043 - 29174 + 2140 - 761 ]
+
+      con.push(0);
+      con.appendCallback(
+        function() { this.yield(this.pop()  - 1420); },
+        function() { this.yield(this.pop()  + 28043); }
+      );
+
+      con.insertCallback(
+        function() { this.yield(this.pop()  - 18307); },
+        function() { this.yield(this.pop()  + 12147); }
+      );
+
+      con.insertCallback(
+        function() { this.yield(this.pop()  + 27500); },
+        3
+      );
+
+      con.appendCallback([
+          function() { this.yield(this.pop()  - 29174); },
+          function() { this.yield(this.pop()  + 2140); },
+          function() { this.yield(this.pop()  - 761); },
+        ]
+      );
+
+      con.appendCallback(function() {
+        this.pop().should.equal(75168);
+        this.depth().should.equal(0);
+        done();
+      }).fire();
+    });
   });
 
 });
