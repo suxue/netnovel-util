@@ -79,14 +79,13 @@ function download_index() {
   });
 
   // fetch cover picture
-  // TODO: relative url processing
   if (index.cover()) {
     counter.up();
     (function() {
       var con = new Context();
-      console.log(index.cover().src);
       con.setCallback(
-        request({url: index.cover().src}),
+        // set encoding to null to get binary response(node Buffer)
+        request({url: index.cover().src, encoding: null}),
         function () {
           var body = this.pop().body;
           fs.writeFileSync(config.outdir + "/cover.jpg", body);
