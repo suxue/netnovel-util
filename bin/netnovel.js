@@ -384,11 +384,6 @@ function main(argv) {
                .appendCallback(download_index)
                .fire();
           })();
-          //read_index(program.url, (function (index) {
-            //download_index(index, program.out,
-                           //parseInt(program.start, 10),
-                           //parseInt(program.concurrency, 10));
-          //}));
         }
       }
     }
@@ -424,10 +419,15 @@ function main(argv) {
     },
     action: function() {
       check_existstence("url");
-      fetch_chapter({
-        item: {url : program.url, name: "test page"},
-        chain_func : function(html) { console.log(html);}
-      });
+      var Context = require('../lib/Context');
+      var con = new Context();
+      con.push(program.url)
+         .insertCallback(fetch_chapter)
+         .appendCallback(function() {
+            var html = this.pop();
+            console.log(html);
+          })
+         .fire();
     }
   });
 
