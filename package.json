@@ -1,7 +1,7 @@
 {
   "name": "netnovel-util",
   "description": "Utility for probing, downloading and packaging netnovels",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "bugs": {
     "url": "https://github.com/suxue/netnovel-util/issues"
   },
@@ -27,7 +27,8 @@
     "commander": "2.0.0",
     "jsdom": "0.6.5",
     "request": "2.33.0",
-    "jszip": "0.2.1"
+    "jszip": "0.2.1",
+    "jade": "1.1.x"
   },
   "devDependencies": {
     "mocha": "1.17.1",
