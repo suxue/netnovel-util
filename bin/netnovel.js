@@ -1,5 +1,9 @@
 var assert = require('../lib/assert');
 
+function load(name) {
+  return require('../lib/' + name);
+}
+
 Error.stackTraceLimit = Infinity;
 process.on('uncaughtException', function(err) {
   if (typeof err === 'object' && typeof err.name === 'string') {
@@ -24,12 +28,12 @@ function print_index() {
 }
 
 function read_index() {
-  var Url = require('../lib/Url');
+  var Url = load('Url');
   var url = this.pop();
   assert(url instanceof Url);
 
   this.insertCallback(
-    require('../lib/request').parse_dom(url.data()),
+    load('request').parse_dom(url.data()),
     url.getScript().indexer
   );
   this.yield();
@@ -38,10 +42,10 @@ function read_index() {
 
 function fetch_chapter() {
   var url = this.pop();
-  var request = require('../lib/request');
+  var request = load('request');
 
   function extrator() {
-    var Url = require('../lib/Url');
+    var Url = load('Url');
     var dom = this.pop();
     var window = dom.window;
     var worker = (new Url(url)).getScript().extractor;
@@ -56,9 +60,9 @@ function fetch_chapter() {
 }
 
 function download_index() {
-  var Counter = require('../lib/Counter');
-  var Context = require('../lib/Context');
-  var request = require("../lib/request");
+  var Counter = load('Counter');
+  var Context = load('Context');
+  var request = load('request');
   var fs = require("fs");
   var index = this.pop();
   var config = this.pop();
@@ -103,7 +107,7 @@ function download_index() {
     var html = this.pop();
     var dir = this.pop();
     var url = this.pop();
-    var Url = require('../lib/Url');
+    var Url = load('Url');
     var fs = require("fs");
     var filename = (new Url(url)).getFileName();
     fs.writeFileSync(dir + filename, html);
@@ -174,9 +178,9 @@ function main(argv) {
       program.option("-u, --url [url]", "the url to be indexed");
     },
     action: function() {
-      var Context = require('../lib/Context');
+      var Context = load('Context');
       var con = new Context();
-      var Url = require('../lib/Url');
+      var Url = load('Url');
       con.push(new Url(program.url))
          .appendCallback(read_index)
          .appendCallback(print_index)
@@ -207,8 +211,8 @@ function main(argv) {
           error(program.out + " is not a directory");
         } else {
           (function() {
-            var Context = require('../lib/Context');
-            var Url = require('../lib/Url');
+            var Context = load('Context');
+            var Url = load('Url');
             var con = new Context();
             var config = {
               start: parseInt(program.start, 10),
@@ -244,7 +248,7 @@ function main(argv) {
         error("cannot read file: " + program.index);
       }
 
-      index = require('../lib/Index').loadJSON(fs.readFileSync(filename));
+      index = load('Index').loadJSON(fs.readFileSync(filename));
       index.package(program.index, program.out);
     }
   });
@@ -256,7 +260,7 @@ function main(argv) {
     },
     action: function() {
       check_existstence("url");
-      var Context = require('../lib/Context');
+      var Context = load('Context');
       var con = new Context();
       con.push(program.url)
          .insertCallback(fetch_chapter)
