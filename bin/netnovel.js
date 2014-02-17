@@ -12,43 +12,6 @@ process.on('uncaughtException', function(err) {
   }
 });
 
-/**
- * This is a wrapper of the jsdom env function, which adds proxy support
- * @param {string} url - the url to be processed
- * @param {Function} callback - prototype is function(error, window)
- */
-
-function http_request(url, callback) {
-  var http_proxy = process.env.http_proxy,
-      Url = require('../lib/Url');
-
-  function parse_dom(input) {
-    require("jsdom").env(input,  {features: false} , callback);
-  }
-
-  if (!/^http:/.test(url)) {
-    url = "http://" + url;
-  }
-  if (http_proxy) {
-    (function () {
-      require('request')(
-        {
-          url: (new Url(url)).data(),
-          proxy: http_proxy,
-        },
-        function(error, response, html) {
-          if (!error && response.statusCode === 200) {
-            parse_dom(html);
-          } else {
-            throw error;
-          }
-        });
-    })();
-  } else {
-    parse_dom(url);
-  }
-}
-
 function print_index() {
   var index = this.pop();
   console.log("title:\t", index.title());
@@ -72,99 +35,111 @@ function read_index() {
   this.yield();
 }
 
-function save_chapter(html, destdir, filename) {
+
+function fetch_chapter() {
+  var url = this.pop();
+  var request = require('../lib/request');
+
+  function extrator() {
+    var Url = require('../lib/Url');
+    var dom = this.pop();
+    var window = dom.window;
+    var worker = (new Url(url)).getScript().extractor;
+
+    this.exec(worker, window);
+  }
+
+  this.insertCallback(
+    request.parse_dom(url),
+    extrator
+  ).yield();
+}
+
+function download_index() {
+  var Counter = require('../lib/Counter');
+  var Context = require('../lib/Context');
+  var request = require("../lib/request");
   var fs = require("fs");
-  if (destdir[destdir.length - 1] !== '/') {
-    destdir = destdir + '/';
-  }
-  fs.writeFileSync(destdir + filename, html);
-}
+  var index = this.pop();
+  var config = this.pop();
+  var length = index.getStatistics().leafCount;
+  var counter = new Counter();
+  var count = config.start;
+  var i;
 
-function fetch_chapter(args) {
-  var url = args.item.url,
-      Url = require('../lib/Url'),
-      filename;
-
-  filename = (new Url(url)).getFileName();
-
-  http_request(args.item.url, function (errors, window) {
-    (new Url(args.item.url)).getScript().extractor.call({
-      yield: function(html) { args.chain_func(html, filename, args);}
-    }, window, args.item);
+  counter.setHook(function() {
+    console.log('\n  fetching complete, writen out to: ' + config.outdir);
   });
-}
-
-function download_index(index, dir, start, concurrency, chain_func) {
-  var count = 0,
-      length = index.getStatistics().leafCount,
-      i,
-      fetch_nexts = [],
-      task_count = -1,
-      fs = require("fs"),
-      request = require("request"),
-      proxy = process.env.http_proxy,
-      leaf_iterator = index.getLeafIterator();
-
-  if (!chain_func) { chain_func = function() {}; }
-
-  if (start) {
-    count += (start - 1);
-    if (!concurrency || concurrency < 1) {
-      concurrency = 5;
-    }
-  }
-  for (i=0; i< count; i++) { leaf_iterator(); }
 
   // write index.json
-  fs.writeFile(dir + "/index.json", index.toJSON(), function() {
-    task_count += 1;
+  counter.up();
+  fs.writeFile(config.outdir + "/index.json", index.toJSON(), function() {
     console.log("write index.json");
+    counter.down();
   });
 
   // fetch cover picture
+  // TODO: relative url processing
   if (index.cover()) {
-    task_count -= 1;
+    counter.up();
     (function() {
-      var req = request({url: index.cover().src, proxy: proxy });
-      var out = fs.createWriteStream(dir + "/cover.jpg");
-      req.pipe(out);
-      req.on("end", function() {
-        console.log("write cover.jpg");
-        task_count += 1;
-      });
+      var con = new Context();
+      console.log(index.cover().src);
+      con.setCallback(
+        request({url: index.cover().src}),
+        function () {
+          var body = this.pop().body;
+          fs.writeFileSync(config.outdir + "/cover.jpg", body);
+          console.log("write cover.jpg");
+          counter.down();
+        }
+      ).fire();
     })();
   }
 
-  for (i=0; i < concurrency; i++) {
-    fetch_nexts[i] = (function() {
-      var _i = i;
-      var args = {
-        generator : function() { count++; return leaf_iterator(); },
-        dest: dir,
-        chain_func : function(html, filename, args) {
-          save_chapter(html, args.dest, filename);
-          fetch_nexts[_i]();
-        }
-      };
+  var item_generator = index.getLeafIterator();
+  for (i = 1; i < config.start; i++) { item_generator(); }
 
+  function save_chapter() {
+    var html = this.pop();
+    var dir = this.pop();
+    var url = this.pop();
+    var Url = require('../lib/Url');
+    var fs = require("fs");
+    var filename = (new Url(url)).getFileName();
+    fs.writeFileSync(dir + filename, html);
+    this.yield();
+  }
+
+  function reporter() {
+    var name = this.pop();
+    console.log("fetch ", count++, '/', length,
+                " : ", name);
+    this.yield();
+  }
+
+  var proc_generator = function() {
+    var item = item_generator();
+    if (item) {
       return function() {
-        args.item = args.generator();
-        if (args.item) {
-          console.log("fetch ", count, '/', length,
-                      " : ", args.item.name);
-          fetch_chapter(args);
-        } else {
-          task_count += 1;
-          if (task_count === concurrency) {
-            console.log('\n  fetching complete, writen out to: ' + dir);
-            chain_func();
-          }
-        }
+        this.push(item.name, item.url, config.outdir, item.url);
+        this.insertCallback(
+          fetch_chapter,
+          save_chapter,
+          reporter
+        ).yield();
       };
-    })();
-  }
+    }
+  };
 
-  fetch_nexts.forEach(function (c) { c(); });
+  function new_task() {
+    counter.up();
+    var context = new Context();
+    context.setGenerator(proc_generator)
+           .appendCallback(function() { counter.down(); });
+    return context;
+  }
+  for (i=0; i < config.concurrency; i++) { new_task().fire(); }
 }
 
 function package_META_INF(index, zip) {
@@ -395,11 +370,26 @@ function main(argv) {
         if (!stat.isDirectory()) {
           error(program.out + " is not a directory");
         } else {
-          read_index(program.url, (function (index) {
-            download_index(index, program.out,
-                           parseInt(program.start, 10),
-                           parseInt(program.concurrency, 10));
-          }));
+          (function() {
+            var Context = require('../lib/Context');
+            var Url = require('../lib/Url');
+            var con = new Context();
+            var config = {
+              start: parseInt(program.start, 10),
+              concurrency: parseInt(program.concurrency, 10),
+              outdir: program.out
+            };
+            con.push(config)
+               .push(new Url(program.url))
+               .appendCallback(read_index)
+               .appendCallback(download_index)
+               .fire();
+          })();
+          //read_index(program.url, (function (index) {
+            //download_index(index, program.out,
+                           //parseInt(program.start, 10),
+                           //parseInt(program.concurrency, 10));
+          //}));
         }
       }
     }
