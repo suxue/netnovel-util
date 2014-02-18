@@ -20,6 +20,7 @@ function print_index() {
   var index = this.pop();
   console.log("title:\t", index.title());
   console.log("author:\t", index.author());
+  console.log("brief:\t", index.brief());
   if (index.cover()) {
     console.log("cover:\t", index.cover().src);
   }
