@@ -70,7 +70,7 @@ function fetch_chapter() {
     var window = dom.window;
     var worker = (new Url(url)).getScript().extractor;
 
-    this.exec(worker, window);
+    this.yield(worker(window));
   }
 
   this.insertCallback(
@@ -80,7 +80,6 @@ function fetch_chapter() {
 }
 
 function download_index() {
-  console.log('download_index@' + this.depth());
   var Counter = load('Counter');
   var Context = load('Context');
   var request = load('request');
@@ -133,7 +132,7 @@ function download_index() {
     var Url = load('Url');
     var fs = require("fs");
     var filename = (new Url(url)).getFileName();
-    fs.writeFileSync(dir + filename, html);
+    fs.writeFileSync(dir + "/" + filename, html);
     this.yield();
   }
 
