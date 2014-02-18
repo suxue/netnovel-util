@@ -14,7 +14,7 @@ cov: build
 
 debug: build
 	-killall  node
-	node --debug-brk ./bin/netnovel &
+	node --debug-brk ./bin/netnovel.js &
 	node-inspector &
 	ni google-chrome http://127.0.0.1:8080/debug?port=5858
 

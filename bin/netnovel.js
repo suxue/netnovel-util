@@ -29,14 +29,33 @@ function print_index() {
 
 function read_index() {
   var Url = load('Url');
+  var Index = load('Index');
   var url = this.pop();
+  var index = new Index();
+  var parse_dom = load('request').parse_dom;
   assert(url instanceof Url);
 
-  this.insertCallback(
-    load('request').parse_dom(url.data()),
-    url.getScript().indexer
-  );
-  this.yield();
+  function repeater() {
+    var top = this.pop();
+    if (top instanceof Index) {
+      this.pop();
+      this.yield(top);
+    } else if (top instanceof Url) {
+      this.insertCallback(
+        parse_dom(top.data()),
+        function() {
+          var dom = this.pop();
+          var rval = top.getScript().indexer(top, index, dom.window);
+          this.yield(rval);
+        },
+        repeater
+      ).yield();
+    } else {
+      throw new TypeError();
+    }
+  }
+
+  this.insertCallback(repeater).yield(/*delimiter*/null, url);
 }
 
 
@@ -60,6 +79,7 @@ function fetch_chapter() {
 }
 
 function download_index() {
+  console.log('download_index@' + this.depth());
   var Counter = load('Counter');
   var Context = load('Context');
   var request = load('request');
@@ -70,6 +90,8 @@ function download_index() {
   var counter = new Counter();
   var count = config.start;
   var i;
+
+  assert(index instanceof load('Index'));
 
   counter.setHook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
