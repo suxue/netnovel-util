@@ -43,7 +43,7 @@ function read_index() {
       this.yield(top);
     } else if (top instanceof Url) {
       this.insertCallback(
-        parse_dom(top.data()),
+        parse_dom(top),
         function() {
           var dom = this.pop();
           var rval = top.getScript().indexer(top, index, dom.window);
@@ -61,15 +61,14 @@ function read_index() {
 
 
 function fetch_chapter() {
-  var url = this.pop();
+  var Url = load('Url');
+  var url = new Url(this.pop());
   var request = load('request');
 
   function extrator() {
-    var Url = load('Url');
     var dom = this.pop();
     var window = dom.window;
-    var worker = (new Url(url)).getScript().extractor;
-
+    var worker = url.getScript().extractor;
     this.yield(worker(window));
   }
 
