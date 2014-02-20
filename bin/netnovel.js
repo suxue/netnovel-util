@@ -1,22 +1,36 @@
-function loadlib(name) {
-  return require('../lib/' + name);
-}
-var assert = loadlib('assert');
+var fs = require("fs");
 
-Error.stackTraceLimit = Infinity;
-process.on('uncaughtException', function(err) {
-  if (typeof err === 'object' && typeof err.name === 'string') {
-    if (err.message) {
-      console.log('\nMessage: ' + err.message);
+var Context  = require('../lib/Context');
+var Counter = require('../lib/Counter');
+var Index = require('../lib/Index');
+var Url = require('../lib/Url');
+var assert = require('../lib/assert');
+var request = require('../lib/request');
+
+(function(){
+// setup fallback error reporting
+//
+  Error.stackTraceLimit = Infinity;
+  process.on('uncaughtException', function(err) {
+    if (typeof err === 'object' && typeof err.name === 'string') {
+      if (err.message) {
+        console.log('\nMessage: ' + err.message);
+      }
+      console.log(err.stack);
+    } else {
+      console.log('dumpError :: argument is not an object');
     }
-    console.log(err.stack);
-  } else {
-    console.log('dumpError :: argument is not an object');
-  }
-});
+  });
+})();
 
-function print_index() {
-  var index = this.pop();
+/////
+//    FuncName$A means this function is meant to be used as part of
+//    an asynchronize calling chain and its input parameters should be
+//    filled by its caller
+////
+function print_index$A(index) {
+  assert(index instanceof Index);
+
   console.log("title:\t", index.title());
   console.log("author:\t", index.author());
   console.log("brief:\t", index.brief());
@@ -27,69 +41,59 @@ function print_index() {
   index.debugPrint(console.log);
 }
 
-function read_index() {
-  var Url = loadlib('Url');
-  var Index = loadlib('Index');
-  var url = this.pop();
-  var index = new Index();
-  var parse_dom = loadlib('request').parse_dom;
+function read_index$A(url) {
   assert(url instanceof Url);
+  /////////////////////////////////
 
-  function repeater() {
-    var top = this.pop();
+  var index = new Index();
+
+  function repeater$A(top) {
     if (top instanceof Index) {
       this.pop();
       this.yield(top);
     } else if (top instanceof Url) {
-      this.insertCallback(
-        parse_dom(top),
-        function() {
-          var dom = this.pop();
+      this.insert(
+        request.parse_dom$Ag(top),
+        function(dom) {
           var rval = top.getScript().indexer(top, index, dom.window);
           this.yield(rval);
         },
-        repeater
+        repeater$A
       ).yield();
     } else {
       throw new TypeError();
     }
   }
 
-  this.insertCallback(repeater).yield(/*delimiter*/null, url);
+  this.insert(repeater$A).yield(/*delimiter*/null, url);
 }
 
 
-function fetch_chapter() {
-  var Url = loadlib('Url');
-  var url = new Url(this.pop());
-  var request = loadlib('request');
+function fetch_chapter$A(urlstr) {
+  assert(typeof urlstr === 'string');
+  var url = new Url(urlstr);
+  ///////////////////////////////////////////////////
 
-  function extrator() {
-    var dom = this.pop();
+  function extrator$A(dom) {
     var window = dom.window;
     var worker = url.getScript().extractor;
     this.yield(worker(window));
   }
 
-  this.insertCallback(
-    request.parse_dom(url),
-    extrator
+  this.insert(
+    request.parse_dom$Ag(url),
+    extrator$A
   ).yield();
 }
 
-function download_index() {
-  var Counter = loadlib('Counter');
-  var Context = loadlib('Context');
-  var request = loadlib('request');
-  var fs = require("fs");
-  var index = this.pop();
-  var config = this.pop();
+function download_index$A(config, index) {
+  assert(typeof config  === 'object');
+  assert(index instanceof Index);
+
   var length = index.getStatistics().leafCount;
   var counter = new Counter();
   var count = config.start;
   var i;
-
-  assert(index instanceof loadlib('Index'));
 
   counter.setHook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
@@ -107,11 +111,11 @@ function download_index() {
     counter.up();
     (function() {
       var con = new Context();
-      con.setCallback(
+      con.set(
         // set encoding to null to get binary response(node Buffer)
         request({url: index.cover().src, encoding: null}),
-        function () {
-          var body = this.pop().body;
+        function (data) {
+          var body = data.body;
           fs.writeFileSync(config.outdir + "/cover.jpg", body);
           console.log("write cover.jpg");
           counter.down();
@@ -123,19 +127,13 @@ function download_index() {
   var item_generator = index.getLeafIterator();
   for (i = 1; i < config.start; i++) { item_generator(); }
 
-  function save_chapter() {
-    var html = this.pop();
-    var dir = this.pop();
-    var url = this.pop();
-    var Url = loadlib('Url');
-    var fs = require("fs");
-    var filename = (new Url(url)).getFileName();
-    fs.writeFileSync(dir + "/" + filename, html);
+  function save_chapter$A(urlstr, dir, html) {
+    var filename = (new Url(urlstr)).getFileName();
+    fs.writeFile(dir + "/" + filename, html);
     this.yield();
   }
 
-  function reporter() {
-    var name = this.pop();
+  function reporter$A(name) {
     console.log("fetch ", count++, '/', length,
                 " : ", name);
     this.yield();
@@ -146,10 +144,10 @@ function download_index() {
     if (item) {
       return function() {
         this.push(item.name, item.url, config.outdir, item.url);
-        this.insertCallback(
-          fetch_chapter,
-          save_chapter,
-          reporter
+        this.insert(
+          fetch_chapter$A,
+          save_chapter$A,
+          reporter$A
         ).yield();
       };
     }
@@ -159,7 +157,7 @@ function download_index() {
     counter.up();
     var context = new Context();
     context.setGenerator(proc_generator)
-           .appendCallback(function() { counter.down(); });
+           .append(function() { counter.down(); });
     return context;
   }
   for (i=0; i < config.concurrency; i++) { new_task().fire(); }
@@ -174,7 +172,6 @@ function main(argv) {
   var program = require('commander'),
       package_json = require('../package.json'),
       commands = {};
-
 
   function error(msg) {
     console.error("error: " + program._name + " " + this.name +  ": " + msg);
@@ -198,12 +195,10 @@ function main(argv) {
       program.option("-u, --url [url]", "the url to be indexed");
     },
     action: function() {
-      var Context = loadlib('Context');
       var con = new Context();
-      var Url = loadlib('Url');
       con.push(new Url(program.url))
-         .appendCallback(read_index)
-         .appendCallback(print_index)
+         .append(read_index$A)
+         .append(print_index$A)
          .fire();
     },
   });
@@ -231,8 +226,6 @@ function main(argv) {
           error(program.out + " is not a directory");
         } else {
           (function() {
-            var Context = loadlib('Context');
-            var Url = loadlib('Url');
             var con = new Context();
             var config = {
               start: parseInt(program.start, 10),
@@ -241,8 +234,8 @@ function main(argv) {
             };
             con.push(config)
                .push(new Url(program.url))
-               .appendCallback(read_index)
-               .appendCallback(download_index)
+               .append(read_index$A)
+               .append(download_index$A)
                .fire();
           })();
         }
@@ -268,7 +261,7 @@ function main(argv) {
         error("cannot read file: " + program.index);
       }
 
-      index = loadlib('Index').loadJSON(fs.readFileSync(filename));
+      index = Index.loadJSON(fs.readFileSync(filename));
       index.package(program.index, program.out);
     }
   });
@@ -280,12 +273,10 @@ function main(argv) {
     },
     action: function() {
       check_existstence("url");
-      var Context = loadlib('Context');
       var con = new Context();
       con.push(program.url)
-         .insertCallback(fetch_chapter)
-         .appendCallback(function() {
-            var html = this.pop();
+         .insert(fetch_chapter$A)
+         .append(function(html) {
             console.log(html);
           })
          .fire();
