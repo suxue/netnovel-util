@@ -1,7 +1,7 @@
 var fs = require("fs");
 
 var Context  = require('../lib/Context');
-var Counter = require('../lib/Counter');
+var Semaphore = require('../lib/Semaphore');
 var Index = require('../lib/Index');
 var Url = require('../lib/Url');
 var assert = require('../lib/assert');
@@ -44,7 +44,6 @@ function print_index$A(index) {
 function read_index$A(url) {
   assert(url instanceof Url);
   /////////////////////////////////
-
   var index = new Index();
 
   function repeater$A(top) {
@@ -91,24 +90,24 @@ function download_index$A(config, index) {
   assert(index instanceof Index);
 
   var length = index.getStatistics().leafCount;
-  var counter = new Counter();
+  var sema = new Semaphore();
   var count = config.start;
   var i;
 
-  counter.setHook(function() {
+  sema.setHook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
   });
 
   // write index.json
-  counter.up();
+  sema.up();
   fs.writeFile(config.outdir + "/index.json", index.toJSON(), function() {
     console.log("write index.json");
-    counter.down();
+    sema.down();
   });
 
   // fetch cover picture
   if (index.cover()) {
-    counter.up();
+    sema.up();
     (function() {
       var con = new Context();
       con.set(
@@ -118,7 +117,7 @@ function download_index$A(config, index) {
           var body = data.body;
           fs.writeFileSync(config.outdir + "/cover.jpg", body);
           console.log("write cover.jpg");
-          counter.down();
+          sema.down();
         }
       ).fire();
     })();
@@ -154,10 +153,10 @@ function download_index$A(config, index) {
   };
 
   function new_task() {
-    counter.up();
+    sema.up();
     var context = new Context();
     context.setGenerator(proc_generator)
-           .append(function() { counter.down(); });
+           .append(function() { sema.down(); });
     return context;
   }
   for (i=0; i < config.concurrency; i++) { new_task().fire(); }

@@ -1,21 +1,21 @@
 /*global describe, it */
 
-var Counter = require('../lib/Counter');
+var Semaphore = require('../lib/Semaphore');
 require('chai').should();
 
 describe("Counter", function() {
-  var counter = new Counter();
+  var sema = new Semaphore();
   var v = false;
-  it('test counter', function() {
-    counter.setHook(function () {
+  it('test semaphore', function() {
+    sema.setHook(function () {
       v = true;
     });
-    counter.up();
-    counter.up();
+    sema.up();
+    sema.up();
     v.should.equal(false);
-    counter.down();
+    sema.down();
     v.should.equal(false);
-    counter.down();
+    sema.down();
     v.should.equal(true);
   });
 });
