@@ -6,7 +6,7 @@ lint: build
 test: build
 	@./node_modules/.bin/mocha -i -g '#async#'
 
-alltest: build
+test-all: build
 	@./node_modules/.bin/mocha
 
 cov: build
