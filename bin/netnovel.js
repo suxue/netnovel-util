@@ -1,8 +1,7 @@
-var assert = require('../lib/assert');
-
-function load(name) {
+function loadlib(name) {
   return require('../lib/' + name);
 }
+var assert = loadlib('assert');
 
 Error.stackTraceLimit = Infinity;
 process.on('uncaughtException', function(err) {
@@ -29,11 +28,11 @@ function print_index() {
 }
 
 function read_index() {
-  var Url = load('Url');
-  var Index = load('Index');
+  var Url = loadlib('Url');
+  var Index = loadlib('Index');
   var url = this.pop();
   var index = new Index();
-  var parse_dom = load('request').parse_dom;
+  var parse_dom = loadlib('request').parse_dom;
   assert(url instanceof Url);
 
   function repeater() {
@@ -61,9 +60,9 @@ function read_index() {
 
 
 function fetch_chapter() {
-  var Url = load('Url');
+  var Url = loadlib('Url');
   var url = new Url(this.pop());
-  var request = load('request');
+  var request = loadlib('request');
 
   function extrator() {
     var dom = this.pop();
@@ -79,9 +78,9 @@ function fetch_chapter() {
 }
 
 function download_index() {
-  var Counter = load('Counter');
-  var Context = load('Context');
-  var request = load('request');
+  var Counter = loadlib('Counter');
+  var Context = loadlib('Context');
+  var request = loadlib('request');
   var fs = require("fs");
   var index = this.pop();
   var config = this.pop();
@@ -90,7 +89,7 @@ function download_index() {
   var count = config.start;
   var i;
 
-  assert(index instanceof load('Index'));
+  assert(index instanceof loadlib('Index'));
 
   counter.setHook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
@@ -128,7 +127,7 @@ function download_index() {
     var html = this.pop();
     var dir = this.pop();
     var url = this.pop();
-    var Url = load('Url');
+    var Url = loadlib('Url');
     var fs = require("fs");
     var filename = (new Url(url)).getFileName();
     fs.writeFileSync(dir + "/" + filename, html);
@@ -199,9 +198,9 @@ function main(argv) {
       program.option("-u, --url [url]", "the url to be indexed");
     },
     action: function() {
-      var Context = load('Context');
+      var Context = loadlib('Context');
       var con = new Context();
-      var Url = load('Url');
+      var Url = loadlib('Url');
       con.push(new Url(program.url))
          .appendCallback(read_index)
          .appendCallback(print_index)
@@ -232,8 +231,8 @@ function main(argv) {
           error(program.out + " is not a directory");
         } else {
           (function() {
-            var Context = load('Context');
-            var Url = load('Url');
+            var Context = loadlib('Context');
+            var Url = loadlib('Url');
             var con = new Context();
             var config = {
               start: parseInt(program.start, 10),
@@ -269,7 +268,7 @@ function main(argv) {
         error("cannot read file: " + program.index);
       }
 
-      index = load('Index').loadJSON(fs.readFileSync(filename));
+      index = loadlib('Index').loadJSON(fs.readFileSync(filename));
       index.package(program.index, program.out);
     }
   });
@@ -281,7 +280,7 @@ function main(argv) {
     },
     action: function() {
       check_existstence("url");
-      var Context = load('Context');
+      var Context = loadlib('Context');
       var con = new Context();
       con.push(program.url)
          .insertCallback(fetch_chapter)

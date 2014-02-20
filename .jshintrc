@@ -9,5 +9,8 @@
   "undef": true,
   "unused": true,
   "trailing": true,
-  "node": true
+  "node": true,
+  "globals": {
+    "loadlib": false
+  }
 }
