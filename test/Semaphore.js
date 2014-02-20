@@ -3,19 +3,19 @@
 var Semaphore = require('../lib/Semaphore');
 require('chai').should();
 
-describe("Counter", function() {
+describe("Semaphore", function() {
   var sema = new Semaphore();
   var v = false;
   it('test semaphore', function() {
-    sema.setHook(function () {
+    sema.hook(function () {
       v = true;
     });
-    sema.up();
-    sema.up();
+    sema.incr();
+    sema.incr();
     v.should.equal(false);
-    sema.down();
+    sema.decr();
     v.should.equal(false);
-    sema.down();
+    sema.decr();
     v.should.equal(true);
   });
 });

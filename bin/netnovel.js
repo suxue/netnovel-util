@@ -94,20 +94,20 @@ function download_index$A(config, index) {
   var count = config.start;
   var i;
 
-  sema.setHook(function() {
+  sema.hook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
   });
 
   // write index.json
-  sema.up();
+  sema.incr();
   fs.writeFile(config.outdir + "/index.json", index.toJSON(), function() {
     console.log("write index.json");
-    sema.down();
+    sema.decr();
   });
 
   // fetch cover picture
   if (index.cover()) {
-    sema.up();
+    sema.decr();
     (function() {
       var con = new Context();
       con.set(
@@ -117,7 +117,7 @@ function download_index$A(config, index) {
           var body = data.body;
           fs.writeFileSync(config.outdir + "/cover.jpg", body);
           console.log("write cover.jpg");
-          sema.down();
+          sema.decr();
         }
       ).fire();
     })();
@@ -153,10 +153,10 @@ function download_index$A(config, index) {
   };
 
   function new_task() {
-    sema.up();
+    sema.incr();
     var context = new Context();
     context.setGenerator(proc_generator)
-           .append(function() { sema.down(); });
+           .append(function() { sema.decr(); });
     return context;
   }
   for (i=0; i < config.concurrency; i++) { new_task().fire(); }
