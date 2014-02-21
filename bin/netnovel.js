@@ -53,7 +53,7 @@ function print_index$A(index) {
   if (index.cover()) {
     console.log("cover:\t", index.cover().src);
   }
-  console.log("==== Table of Contecnts ====");
+  console.log("==== Table of Contents ====");
   index.debugPrint(console.log);
 }
 
@@ -189,7 +189,7 @@ function main(argv) {
       commands = {};
 
   function error(msg) {
-    console.error("error: " + program._name + " " + this.name +  ": " + msg);
+    console.error("error: " + program._name +  ": " + msg);
     process.exit(1);
   }
 
@@ -207,6 +207,7 @@ function main(argv) {
   define_subcommand('index', {
     description: 'fetch and print book index and metadata',
     setup: function() {
+      program.option("\n\b\b[index]:", "");
       program.option("-i, --input [file]", "the index file to be parsed (- as stdin)");
       program.option("-u, --url [url]", "the url to be indexed");
       program.option("-o, --out [file]", "write index to file");
@@ -259,8 +260,9 @@ function main(argv) {
     description: "download chapters from index",
     setup: function() {
       program
+        .option("\n\b\b[download]:", "")
         .option("-u, --url [url]", "the url of index")
-        .option("-i, --index [file]", "saved index file (- as stdout)")
+        .option("-i, --index [file]", "read index from saved file (- as stdin)")
         .option("-o, --out [dir]", "the target directory of fetched files")
         .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
         .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5");
@@ -304,6 +306,7 @@ function main(argv) {
     description: "package chapters into single epub file",
     setup: function() {
       program
+        .option("\n\b\b[package]:", "")
         .option("-i, --index [dir]", "the directory contains index.json and chapters")
         .option("-o, --out [epub]", "the output epub filename");
     },
@@ -326,7 +329,9 @@ function main(argv) {
   define_subcommand('fetch', {
     description: "fetch single chapter and present its content",
     setup: function() {
-      program.option("-u, --url [url]", "the webpage to be fetched");
+      program
+        .option("\n\b\b[fetch]:", "")
+        .option("-u, --url [url]", "the webpage to be fetched");
     },
     action: function() {
       check_existstence("url");
@@ -358,6 +363,13 @@ function main(argv) {
   });
 
   if (argv.length === 2) {
+    program.help();
+  } else if (argv.length === 3 && (argv[2] === '-h' || argv[2] === '--help')) {
+    for (var k in commands) {
+      if (commands.hasOwnProperty(k)) {
+        commands[k].setup();
+      }
+    }
     program.help();
   } else if (commands.hasOwnProperty(argv[2])) {
     (function(cmd) {
