@@ -61,6 +61,8 @@ function read_index$A(url) {
   assert(url instanceof Url);
   /////////////////////////////////
   var index = new Index();
+  index.href(url.data());
+  var dom = require("../lib/dom")(url.getDomain(), 'index');
 
   function repeater$A(top) {
     if (top instanceof Index) {
@@ -68,10 +70,11 @@ function read_index$A(url) {
       this.yield(top);
     } else if (top instanceof Url) {
       this.insert(
-        request.parse_dom$Ag(top),
-        function(dom) {
-          var rval = top.getScript().indexer(top, index, dom.window);
-          this.yield(rval);
+        function() {
+          var context = this;
+          var job = dom(url, function(r) { context.yield(r); });
+          job.setWorkerExtraArgs(url, index);
+          job.run();
         },
         repeater$A
       ).yield();
@@ -89,16 +92,11 @@ function fetch_chapter$A(urlstr) {
   var url = new Url(urlstr);
   ///////////////////////////////////////////////////
 
-  function extrator$A(dom) {
-    var window = dom.window;
-    var worker = url.getScript().extractor;
-    this.yield(worker(window));
-  }
-
-  this.insert(
-    request.parse_dom$Ag(url),
-    extrator$A
-  ).yield();
+  var context = this;
+  var dom = require('../lib/dom')(url.getDomain(), 'extract');
+  dom(url, function(html) {
+    context.yield(html);
+  }).run();
 }
 
 function download_index$A(config, index) {
@@ -139,43 +137,40 @@ function download_index$A(config, index) {
     })();
   }
 
+  // skip n items to reeach start point
   var item_generator = index.getLeafIterator();
   for (i = 1; i < config.start; i++) { item_generator(); }
 
-  function save_chapter$A(urlstr, dir, html) {
-    var filename = (new Url(urlstr)).getFileName();
-    fs.writeFile(dir + "/" + filename, html);
-    this.yield();
-  }
-
-  function reporter$A(name) {
-    console.log("fetch ", count++, '/', length,
-                " : ", name);
-    this.yield();
-  }
-
-  var proc_generator = function() {
+  var href = index.href();
+  var url = new Url(href);
+  var dom = require('../lib/dom')(url.getDomain(), 'extract');
+  function generator() {
     var item = item_generator();
-    if (item) {
-      return function() {
-        this.push(item.name, item.url, config.outdir, item.url);
-        this.insert(
-          fetch_chapter$A,
-          save_chapter$A,
-          reporter$A
-        ).yield();
-      };
+    if (!item) {
+      return undefined;
     }
-  };
 
-  function new_task() {
-    sema.incr();
-    var context = new Context();
-    context.setGenerator(proc_generator)
-           .append(function() { sema.decr(); });
-    return context;
+    var href = item.url;
+    var url = new Url(href);
+    var name = item.name;
+    return [
+      url,
+      function(html) {
+        var filename = url.getFileName();
+        sema.incr();
+        fs.writeFile(config.outdir + "/" + filename, html, function() {
+          console.log("fetch ", count++, '/', length, " : ", name);
+          sema.decr();
+        });
+        this.yield();
+      }
+    ];
   }
-  for (i=0; i < config.concurrency; i++) { new_task().fire(); }
+
+  for (i=0; i < config.concurrency; i++) {
+    sema.incr();
+    dom(generator).onEnd(function() {sema.decr(); }).run();
+  }
 }
 
 function main(argv) {
