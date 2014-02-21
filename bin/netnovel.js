@@ -23,6 +23,22 @@ var request = require('../lib/request');
   });
 })();
 
+function save_index$A(filename, index) {
+  assert(typeof filename === 'string');
+  assert(index instanceof Index);
+  var out;
+  if (filename !== '-') {
+    out = fs.createWriteStream(filename);
+  } else {
+    out = process.stdout;
+  }
+  out.write(index.toJSON(), function() {
+    if (out !== process.stdout) {
+      console.log("index writen to " + filename);
+    }
+  });
+}
+
 /////
 //    FuncName$A means this function is meant to be used as part of
 //    an asynchronize calling chain and its input parameters should be
@@ -107,7 +123,7 @@ function download_index$A(config, index) {
 
   // fetch cover picture
   if (index.cover()) {
-    sema.decr();
+    sema.incr();
     (function() {
       var con = new Context();
       con.set(
@@ -191,14 +207,51 @@ function main(argv) {
   define_subcommand('index', {
     description: 'fetch and print book index and metadata',
     setup: function() {
+      program.option("-i, --input [file]", "the index file to be parsed (- as stdin)");
       program.option("-u, --url [url]", "the url to be indexed");
+      program.option("-o, --out [file]", "write index to file");
     },
     action: function() {
       var con = new Context();
-      con.push(new Url(program.url))
-         .append(read_index$A)
-         .append(print_index$A)
-         .fire();
+
+      if (program.url !== undefined) {
+        con.push(new Url(program.url))
+           .append(read_index$A);
+      } else if (program.input !== undefined) {
+        con.append((function() {
+          var data = [];
+          return function() {
+            var input;
+            var context = this;
+            if (program.input === '-') {
+              input = process.stdin;
+            } else {
+              input = fs.createReadStream(program.input);
+            }
+            input.setEncoding("utf-8");
+            input.on("data", function(d) {
+              data.push(d);
+            });
+            input.on("error", function() {
+              error("IO error occurs when reading from " + program.input);
+            });
+            input.on('end', function() {
+              context.yield(Index.loadJSON(data.join("")));
+            });
+          };
+        })());
+        //con.push(Index.loadJSON(fs.readFileSync(program.input)));
+      } else {
+        error("no url or index file speciified, abort");
+      }
+
+      if (program.out !== undefined) {
+        con.unshift(program.out)
+           .append(save_index$A);
+      } else {
+        con.append(print_index$A);
+      }
+      con.fire();
     },
   });
 
@@ -207,6 +260,7 @@ function main(argv) {
     setup: function() {
       program
         .option("-u, --url [url]", "the url of index")
+        .option("-i, --index [file]", "saved index file (- as stdout)")
         .option("-o, --out [dir]", "the target directory of fetched files")
         .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
         .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5");
@@ -216,29 +270,33 @@ function main(argv) {
           stat;
 
       check_existstence("out");
-      check_existstence("url");
       if (!fs.existsSync(program.out)) {
         error("folder " + program.out + " does not exist");
-      } else {
-        stat = fs.statSync(program.out);
-        if (!stat.isDirectory()) {
-          error(program.out + " is not a directory");
-        } else {
-          (function() {
-            var con = new Context();
-            var config = {
-              start: parseInt(program.start, 10),
-              concurrency: parseInt(program.concurrency, 10),
-              outdir: program.out
-            };
-            con.push(config)
-               .push(new Url(program.url))
-               .append(read_index$A)
-               .append(download_index$A)
-               .fire();
-          })();
-        }
       }
+
+      stat = fs.statSync(program.out);
+      if (!stat.isDirectory()) {
+        error(program.out + " is not a directory");
+      }
+
+      var con = new Context();
+      con.push({
+        start: parseInt(program.start, 10),
+        concurrency: parseInt(program.concurrency, 10),
+        outdir: program.out
+      });
+      if (typeof program.url === 'string') {
+        (function() {
+          con.push(new Url(program.url))
+             .append(read_index$A);
+        })();
+      } else if (typeof program.index === 'string') {
+        con.push(Index.loadJSON(fs.readFileSync(program.index)));
+      } else {
+        error("no url or index file specified, abort");
+      }
+      con.append(download_index$A)
+         .fire();
     }
   });
 
