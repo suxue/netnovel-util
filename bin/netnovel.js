@@ -96,6 +96,7 @@ function fetch_chapter$A(urlstr) {
   var dom = require('../lib/dom')(url.getDomain(), 'extract');
   dom(url, function(html) {
     context.yield(html);
+    this.yield();
   }).run();
 }
 
