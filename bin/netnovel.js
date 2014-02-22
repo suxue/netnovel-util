@@ -20,6 +20,7 @@ var request = require('../lib/request');
     } else {
       console.log('dumpError :: argument is not an object');
     }
+    process.exit(99);
   });
 })();
 
