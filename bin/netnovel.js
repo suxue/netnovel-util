@@ -151,7 +151,7 @@ function download_index$A(config, index) {
     }
 
     var href = item.url;
-    var url = new Url(href);
+    var url = new Url(decodeURI(href));
     var name = item.name;
     return [
       url,
