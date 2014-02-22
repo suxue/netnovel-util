@@ -66,14 +66,15 @@ function read_index$A(url) {
 
   function repeater$A(top) {
     if (top instanceof Index) {
+      console.log('finish');
       this.pop();
       this.yield(top);
     } else if (top instanceof Url) {
       this.insert(
         function() {
           var context = this;
-          var job = dom(url, function(r) { context.yield(r); });
-          job.setWorkerExtraArgs(url, index);
+          var job = dom(top, function(r) { context.yield(r); });
+          job.setWorkerExtraArgs(top, index);
           job.run();
         },
         repeater$A
