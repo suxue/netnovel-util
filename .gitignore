@@ -1,5 +1,6 @@
 lib/sites/lfs7.js
 out/
+www/*
 node_modules/
 .tern-port
 *~

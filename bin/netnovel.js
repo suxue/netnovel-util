@@ -27,6 +27,7 @@ var request = require('../lib/request');
 function save_index$A(filename, index) {
   assert(typeof filename === 'string');
   assert(index instanceof Index);
+  var con = this;
   var out;
   if (filename !== '-') {
     out = fs.createWriteStream(filename);
@@ -37,6 +38,7 @@ function save_index$A(filename, index) {
     if (out !== process.stdout) {
       console.log("index writen to " + filename);
     }
+    con.yield();
   });
 }
 
@@ -252,8 +254,8 @@ function main(argv) {
            .append(save_index$A);
       } else {
         con.append(print_index$A);
-        con.append(function() { process.exit(0); });
       }
+      con.append(function() { process.exit(0); });
       con.fire();
     },
   });
