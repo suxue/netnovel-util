@@ -56,6 +56,7 @@ function print_index$A(index) {
   }
   console.log("==== Table of Contents ====");
   index.debugPrint(console.log);
+  this.yield();
 }
 
 function read_index$A(url) {
@@ -110,9 +111,11 @@ function download_index$A(config, index) {
   var sema = new Semaphore();
   var count = config.start;
   var i;
+  var context = this;
 
   sema.hook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
+    context.yield();
   });
 
   // write index.json
@@ -249,6 +252,7 @@ function main(argv) {
            .append(save_index$A);
       } else {
         con.append(print_index$A);
+        con.append(function() { process.exit(0); });
       }
       con.fire();
     },
@@ -296,6 +300,7 @@ function main(argv) {
         error("no url or index file specified, abort");
       }
       con.append(download_index$A)
+         .append(function() { process.exit(0); })
          .fire();
     }
   });
@@ -321,6 +326,7 @@ function main(argv) {
 
       index = Index.loadJSON(fs.readFileSync(filename));
       index.package(program.index, program.out);
+      process.exit(0);
     }
   });
 
@@ -338,6 +344,7 @@ function main(argv) {
          .insert(fetch_chapter$A)
          .append(function(html) {
             console.log(html);
+            process.exit(0);
           })
          .fire();
     }
@@ -389,6 +396,11 @@ function main(argv) {
   }
 } /// end of main(argv)
 
-main(process.argv);
+require('../lib/miniserver')(function(port) {
+  global.LOCAL_MINISERVER = function(path) {
+    return 'http://localhost:' + port + '/' + path;
+  };
+  main(process.argv);
+});
 
 // vim: set errorformat=%f\:\ line\ %l\\,\ col\ %c\\,%m:
