@@ -25,7 +25,7 @@ describe("dom", function() {
     job.run();
   });
 
-  it('#async#phdom extract single', function(done) {
+  it('#async#phantom extract single', function(done) {
     var phdom = dom('localhost:52182', 'extract');
     var job = phdom(new Url('http://localhost:52181/'), function(title) {
       title.should.equal('hello world');
