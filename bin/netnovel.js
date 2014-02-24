@@ -84,7 +84,7 @@ function read_index$A(url) {
     }
   }
 
-  this.insert(repeater$A).yield({url: url.data()});
+  this.insert(repeater$A).yield({url: url.data(), href: url.data()});
 }
 
 
@@ -123,14 +123,15 @@ function download_index$A(config, index) {
     sema.decr();
   });
 
+
   // fetch cover picture
-  if (index.cover()) {
+  if (index.coverUrl()) {
     sema.incr();
     (function() {
       var con = new Context();
       con.set(
         // set encoding to null to get binary response(node Buffer)
-        request({url: index.cover().src, encoding: null}),
+        request({url: index.coverUrl(), encoding: null}),
         function (data) {
           var body = data.body;
           fs.writeFileSync(config.outdir + "/cover.jpg", body);
