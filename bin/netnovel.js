@@ -61,10 +61,10 @@ function print_index$A(index) {
   this.yield();
 }
 
-function read_index$A(url) {
+function read_index$A(url, model) {
   assert(url instanceof Url);
   /////////////////////////////////
-  var dom = require("../lib/dom")(url.getDomain(), 'index');
+  var dom = require("../lib/dom")(url.getDomain(), 'index', model);
 
   function repeater$A(top) {
     assert(top && typeof top === 'object');
@@ -75,7 +75,7 @@ function read_index$A(url) {
         function() {
           var context = this;
           var job = dom((new Url(top.url)),
-                        function(r) { context.yield(r); this.yield(); });
+                        function(r) { this.yield(); context.yield(r); });
           job.setArguments(top);
           job.run();
         },
@@ -88,7 +88,7 @@ function read_index$A(url) {
 }
 
 
-function fetch_chapter$A(urlstr) {
+function fetch_chapter$A(urlstr, model) {
   assert(typeof urlstr === 'string');
   var url = new Url(urlstr);
   ///////////////////////////////////////////////////
@@ -98,10 +98,10 @@ function fetch_chapter$A(urlstr) {
   dom(url, function(html) {
     context.yield(html);
     this.yield();
-  }).run();
+  }, model).run();
 }
 
-function download_index$A(config, index) {
+function download_index$A(config, index, model) {
   assert(typeof config  === 'object');
   assert(index instanceof Index);
 
@@ -148,7 +148,7 @@ function download_index$A(config, index) {
 
   var href = index.href();
   var url = new Url(href);
-  var dom = require('../lib/dom')(url.getDomain(), 'extract');
+  var dom = require('../lib/dom')(url.getDomain(), 'extract', model);
   function generator() {
     var item = item_generator();
     if (!item) {
@@ -188,6 +188,8 @@ function main(argv) {
       package_json = require('../package.json'),
       commands = {};
 
+  program.option("-l, --list", "list misc program information");
+
   function error(msg) {
     console.error("error: " + program._name +  ": " + msg);
     process.exit(1);
@@ -211,12 +213,13 @@ function main(argv) {
       program.option("-i, --input [file]", "the index file to be parsed (- as stdin)");
       program.option("-u, --url [url]", "the url to be indexed");
       program.option("-o, --out [file]", "write index to file");
+      program.option("-b, --browser [model]", "browser backend to use", 'auto');
     },
     action: function() {
       var con = new Context();
 
       if (program.url !== undefined) {
-        con.push(new Url(program.url))
+        con.push(new Url(program.url), program.browser)
            .append(read_index$A);
       } else if (program.input !== undefined) {
         con.append((function() {
@@ -266,7 +269,8 @@ function main(argv) {
         .option("-i, --index [file]", "read index from saved file (- as stdin)")
         .option("-o, --out [dir]", "the target directory of fetched files")
         .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
-        .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5");
+        .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5")
+        .option("-b, --browser [model]", "browser backend to use", 'auto');
     },
     action: function() {
       var fs = require("fs"),
@@ -298,7 +302,8 @@ function main(argv) {
       } else {
         error("no url or index file specified, abort");
       }
-      con.append(download_index$A)
+      con.push(program.browser)
+         .append(download_index$A)
          .append(function() { process.exit(0); })
          .fire();
     }
@@ -334,12 +339,13 @@ function main(argv) {
     setup: function() {
       program
         .option("\n\b\b[fetch]:", "")
-        .option("-u, --url [url]", "the webpage to be fetched");
+        .option("-u, --url [url]", "the webpage to be fetched")
+        .option("-b, --browser [model]", "browser backend to use", 'auto');
     },
     action: function() {
       check_existstence("url");
       var con = new Context();
-      con.push(program.url)
+      con.push(program.url, program.browser)
          .insert(fetch_chapter$A)
          .append(function(html) {
             console.log(html);
@@ -390,6 +396,11 @@ function main(argv) {
     })(argv[2]);
   } else if (argv.length === 3 && argv[2][0] === '-') {
     program.parse(argv);
+    if (program.list) {
+      var engines = require('../lib/dom').availableEngines;
+      console.log([" * available dom engines are: "].concat(engines.join(', ')).join(''));
+    }
+    process.exit(0);
   } else {
     console.error("error: unknown subcommand: " + argv[2]);
   }
