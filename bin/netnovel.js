@@ -75,7 +75,7 @@ function read_index$A(url) {
         function() {
           var context = this;
           var job = dom((new Url(top.url)),
-                        function(r) { context.yield(r); });
+                        function(r) { context.yield(r); this.yield(); });
           job.setArguments(top);
           job.run();
         },
