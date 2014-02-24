@@ -71,6 +71,7 @@ function read_index$A(url, model) {
     if (typeof top.url !== 'string') {
       this.yield(Index.weave(top));
     } else {
+      console.log(top.url);
       this.insert(
         function() {
           var context = this;

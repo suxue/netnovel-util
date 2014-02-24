@@ -1,29 +1,39 @@
-// This is not the actually Index object in runtime, but a flatten
-// representation to be used by indexers worked in the fake dom environment
+  // This is not the actually Index object in runtime, but a flatten
+  // representation to be used by indexers worked in the fake dom environment
 
-// Example:
-{
-    "coverUrl": "http://xxx.xxx.com/cover.jpg", // optional
-    "author": "D. Crockford",
-    "brief": "this is a classic introductory text to javascript language", //optional
-    "title": "Javascript: The Good Parts",
-    "coverWidth": 250,   // optional
-    "coverHeight": 400,   // optional
-    "toc": [
-      ["Preface", "http://xxx.com/Books/JTGP/preface-id1.html"],
-      {"name": "Chapter 1",
-       "toc":[
-                ["Section 1.1. Why JavaScript?",
-                 "http://xxx.com/Books/JTGP/why_javascript_question.html"],
-                ["Section 1.2. Analyzing JavaScript",
-                 "http://xxx.com/Books/JTGP/analyzing_javascript.html"]
-       ]},
-       {"name": "Chapter 2",
-         "toc": [
-            ["Section 2.1. Whitespace", "http://xxx.com/Books/JTGP/whitespace.html"]
-       ]}
-    ]
-}
+  // Example:
+  {
+      "coverUrl": "http://xxx.xxx.com/cover.jpg", // optional
+      "author": "D. Crockford",
+      "brief": "this is a classic introductory text to javascript language", //optional
+      "title": "Javascript: The Good Parts",
+      "coverWidth": 250,   // optional
+      "coverHeight": 400,   // optional
+      "toc": [
+        ["Preface", "http://xxx.com/Books/JTGP/preface-id1.html"],
+        {"name": "Chapter 1",
+         "toc":[
+                  ["Section 1.1. Why JavaScript?",
+                   "http://xxx.com/Books/JTGP/why_javascript_question.html"],
+                  ["Section 1.2. Analyzing JavaScript",
+                   "http://xxx.com/Books/JTGP/analyzing_javascript.html"]
+         ]},
+         {"name": "Chapter 2",
+           "toc": [
+              ["Section 2.1. Whitespace", "http://xxx.com/Books/JTGP/whitespace.html"]
+         ]}
+      ]
+  }
 
 
-// vim: set ft=javascript:
+## indexer 函数
+
+所有的站点脚本都在`lib/sites`文件夹下，这些脚本是普通的nodejs模块，
+在exports对象中注册的属性将被导出，例如
+
+    exports.indexer = function qidian_indexer(index) {
+        index.author = $("p").html();
+    }
+
+
+// vim: set ft=markdown:
