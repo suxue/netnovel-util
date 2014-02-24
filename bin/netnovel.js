@@ -101,7 +101,7 @@ function fetch_chapter$A(urlstr, model) {
   }).run();
 }
 
-function download_index$A(config, index, model) {
+function download_index$A(config, index, model, override) {
   assert(typeof config  === 'object');
   assert(index instanceof Index);
 
@@ -126,20 +126,26 @@ function download_index$A(config, index, model) {
 
   // fetch cover picture
   if (index.coverUrl()) {
-    sema.incr();
-    (function() {
-      var con = new Context();
-      con.set(
-        // set encoding to null to get binary response(node Buffer)
-        request({url: index.coverUrl(), encoding: null}),
-        function (data) {
-          var body = data.body;
-          fs.writeFileSync(config.outdir + "/cover.jpg", body);
-          console.log("write cover.jpg");
-          sema.decr();
-        }
-      ).fire();
-    })();
+    fs.exists(config.outdir + '/cover.jpg', function (exists) {
+      if (!override && exists) {
+        console.log("skip cover.jpg");
+        return;
+      }
+      sema.incr();
+      (function() {
+        var con = new Context();
+        con.set(
+          // set encoding to null to get binary response(node Buffer)
+          request({url: index.coverUrl(), encoding: null}),
+          function (data) {
+            var body = data.body;
+            fs.writeFileSync(config.outdir + "/cover.jpg", body);
+            console.log("write cover.jpg");
+            sema.decr();
+          }
+        ).fire();
+      })();
+    });
   }
 
   // skip n items to reeach start point
@@ -158,18 +164,26 @@ function download_index$A(config, index, model) {
     var href = item.url;
     var url = new Url(decodeURI(href));
     var name = item.name;
-    return [
-      url,
-      function(html) {
-        var filename = url.getFileName();
-        sema.incr();
-        fs.writeFile(config.outdir + "/" + filename, html, function() {
-          console.log("fetch ", count++, '/', length, " : ", name);
-          sema.decr();
-        });
-        this.yield();
-      }
-    ];
+    var filename = url.getFileName();
+    var message = count + '/' + length + ' (' + filename.slice(0, 5) + ') : ' + name;
+    if (!override && fs.existsSync(config.outdir + "/" + filename)) {
+      count++;
+      console.log("skip ", message);
+      return generator();
+    } else {
+      return [
+        url,
+        function(html) {
+          sema.incr();
+          fs.writeFile(config.outdir + "/" + filename, html, function() {
+            count++;
+            console.log("fetch ", message);
+            sema.decr();
+          });
+          this.yield();
+        }
+      ];
+    }
   }
 
   for (i=0; i < config.concurrency; i++) {
@@ -270,7 +284,8 @@ function main(argv) {
         .option("-o, --out [dir]", "the target directory of fetched files")
         .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
         .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5")
-        .option("-b, --browser [model]", "browser backend to use", 'auto');
+        .option("-b, --browser [model]", "browser backend to use", 'auto')
+        .option("-f, --force", "force override existing files");
     },
     action: function() {
       var fs = require("fs"),
@@ -302,7 +317,7 @@ function main(argv) {
       } else {
         error("no url or index file specified, abort");
       }
-      con.push(program.browser)
+      con.push(program.browser, !!program.force)
          .append(download_index$A)
          .append(function() { process.exit(0); })
          .fire();
@@ -403,6 +418,7 @@ function main(argv) {
     process.exit(0);
   } else {
     console.error("error: unknown subcommand: " + argv[2]);
+    process.exit(1);
   }
 } /// end of main(argv)
 
