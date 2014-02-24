@@ -73,4 +73,14 @@ jsdom可能需要指定页面编码
 
     netnovel-util fetch http://xxx.yyy.zzz/page.htm --browser phantom
 
+## 加载外部javascript库
+
+加载”本地“javascript，jquery.js在www文件夹下
+
+    exports.scripts = ["jquery.js"];
+
+加载外部javascript:
+
+    exports.scripts = ["http://ajax.googleapis.com/ajax/libs/angularjs/1.2.12/angular.min.js"];
+
 // vim: set ft=markdown:

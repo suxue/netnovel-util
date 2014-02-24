@@ -94,11 +94,11 @@ function fetch_chapter$A(urlstr, model) {
   ///////////////////////////////////////////////////
 
   var context = this;
-  var dom = require('../lib/dom')(url.getDomain(), 'extract');
+  var dom = require('../lib/dom')(url.getDomain(), 'extract', model);
   dom(url, function(html) {
     context.yield(html);
     this.yield();
-  }, model).run();
+  }).run();
 }
 
 function download_index$A(config, index, model) {
