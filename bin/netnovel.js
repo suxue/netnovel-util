@@ -53,8 +53,8 @@ function print_index$A(index) {
   console.log("title:\t", index.title());
   console.log("author:\t", index.author());
   console.log("brief:\t", index.brief());
-  if (index.cover()) {
-    console.log("cover:\t", index.cover().src);
+  if (index.coverUrl()) {
+    console.log("cover:\t", index.coverUrl());
   }
   console.log("==== Table of Contents ====");
   index.debugPrint(console.log);
@@ -64,31 +64,27 @@ function print_index$A(index) {
 function read_index$A(url) {
   assert(url instanceof Url);
   /////////////////////////////////
-  var index = new Index();
-  index.href(url.data());
   var dom = require("../lib/dom")(url.getDomain(), 'index');
 
   function repeater$A(top) {
-    if (top instanceof Index) {
-      console.log('finish');
-      this.pop();
-      this.yield(top);
-    } else if (top instanceof Url) {
+    assert(top && typeof top === 'object');
+    if (typeof top.url !== 'string') {
+      this.yield(Index.weave(top));
+    } else {
       this.insert(
         function() {
           var context = this;
-          var job = dom(top, function(r) { context.yield(r); });
-          job.setWorkerExtraArgs(top, index);
+          var job = dom((new Url(top.url)),
+                        function(r) { context.yield(r); });
+          job.setArguments(top);
           job.run();
         },
         repeater$A
       ).yield();
-    } else {
-      throw new TypeError();
     }
   }
 
-  this.insert(repeater$A).yield(/*delimiter*/null, url);
+  this.insert(repeater$A).yield({url: url.data()});
 }
 
 
