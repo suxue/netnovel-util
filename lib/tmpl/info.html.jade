@@ -1,0 +1,26 @@
+doctype xml
+html(xmlns="http://www.w3.org/1999/xhtml", xml:lang="zh-CN")
+  head
+    title 封面
+    meta(http-equiv="Content-Type", content="text/html; charset=utf-8")
+    style(type="text/css")
+      | @page { margin-bottom: 5pt; margin-top: 5pt; }
+  body
+    div.cover
+      img(src="cover.jpg")
+    div.bookinfo
+      ul
+        li
+          b 书名
+        li
+          =title
+      ul
+        li
+          b 作者
+        li
+          =author
+      ul
+        li
+          b 简介
+        li
+          =brief

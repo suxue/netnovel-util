@@ -8,8 +8,16 @@ ncx(xmlns="http://www.daisy.org/z3986/2005/ncx/",
   docTitle
     text= title + '--' + author
   navMap
-    each item in toc
-      navPoint(class="chapter" id=item.id  playOrder=item.index)
-        navLabel
-          text= item.text
-        content(src=item.src)
+    navPoint(id="titlepage", playOrder="1")
+      navLabel
+        text 封面
+      content(src="titlepage.xhtml")
+    navPoint(id="infopage", playOrder="2")
+      navLabel
+        text 封面
+      content(src="info.html")
+    navPoint(id="catalog", playOrder="3")
+      navLabel
+        text 目录
+      content(src="catalog.html")
+    != toc
