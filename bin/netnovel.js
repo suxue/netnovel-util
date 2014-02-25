@@ -344,8 +344,11 @@ function main(argv) {
       }
 
       index = Index.loadJSON(fs.readFileSync(filename));
-      index.package(program.index, program.out);
-      process.exit(0);
+      program.out = program.out || index.title() + " - " + index.author() + ".epub";
+      index.package(program.index, program.out, function(bytes) {
+        console.log(bytes + " bytes writen to " + program.out);
+        process.exit(0);
+      });
     }
   });
 
