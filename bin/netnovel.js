@@ -165,10 +165,11 @@ function download_index$A(config, index, model, override) {
     var url = new Url(decodeURI(href));
     var name = item.name;
     var filename = url.getFileName();
-    var message = count + '/' + length + ' (' + filename.slice(0, 5) + ') : ' + name;
+    var message = function() {
+      return (count++) + '/' + length + ' (' + filename.slice(0,5) + ') : ' + name;
+    };
     if (!override && fs.existsSync(config.outdir + "/" + filename)) {
-      count++;
-      console.log("skip ", message);
+      console.log("skip ", message());
       return generator();
     } else {
       return [
@@ -176,8 +177,7 @@ function download_index$A(config, index, model, override) {
         function(html) {
           sema.incr();
           fs.writeFile(config.outdir + "/" + filename, html, function() {
-            count++;
-            console.log("fetch ", message);
+            console.log("fetch ", message());
             sema.decr();
           });
           this.yield();
