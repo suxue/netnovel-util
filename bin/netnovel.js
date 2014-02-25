@@ -101,7 +101,7 @@ function fetch_chapter$A(urlstr, model) {
   }).run();
 }
 
-function download_index$A(config, index, model, override) {
+function download_index$A(config, index, model, delay, override) {
   assert(typeof config  === 'object');
   assert(index instanceof Index);
 
@@ -154,7 +154,7 @@ function download_index$A(config, index, model, override) {
 
   var href = index.href();
   var url = new Url(href);
-  var dom = require('../lib/dom')(url.getDomain(), 'extract', model);
+  var dom = require('../lib/dom')(url.getDomain(), 'extract', model, delay);
   function generator() {
     var item = item_generator();
     if (!item) {
@@ -285,7 +285,8 @@ function main(argv) {
         .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
         .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5")
         .option("-b, --browser [model]", "browser backend to use", 'auto')
-        .option("-f, --force", "force override existing files");
+        .option("-f, --force", "force override existing files")
+        .option("-d, --delay", "delay between two request");
     },
     action: function() {
       var fs = require("fs"),
@@ -299,6 +300,13 @@ function main(argv) {
       stat = fs.statSync(program.out);
       if (!stat.isDirectory()) {
         error(program.out + " is not a directory");
+      }
+
+      if (typeof program.delay === 'string') {
+        program.delay = parseInt(program.delay, 10);
+        if (isNaN(program.delay)) {
+          delete program.delay;
+        }
       }
 
       var con = new Context();
@@ -317,7 +325,7 @@ function main(argv) {
       } else {
         error("no url or index file specified, abort");
       }
-      con.push(program.browser, !!program.force)
+      con.push(program.browser, program.delay, !!program.force)
          .append(download_index$A)
          .append(function() { process.exit(0); })
          .fire();

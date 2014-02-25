@@ -73,6 +73,10 @@ jsdom可能需要指定页面编码
 
     netnovel-util fetch http://xxx.yyy.zzz/page.htm --browser phantom
 
+指定默认delay，下载章节时两章之间等待时间（毫秒）
+
+    exports.delay = 3000;
+
 ## 加载外部javascript库
 
 加载”本地“javascript，jquery.js在www文件夹下
