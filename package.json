@@ -1,7 +1,7 @@
 {
   "name": "netnovel-util",
   "description": "Utility for probing, downloading and packaging netnovels",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "bugs": {
     "url": "https://github.com/suxue/netnovel-util/issues"
   },
@@ -24,10 +24,12 @@
   ],
   "readmeFilename": "README.md",
   "dependencies": {
+    "iconv-lite": "0.2.11",
+    "node-phantom-simple": "1.1.0",
     "commander": "2.0.0",
     "jsdom": "0.6.5",
     "request": "2.33.0",
-    "jszip": "0.2.1",
+    "archiver": "0.6.1",
     "jade": "1.1.x"
   },
   "devDependencies": {

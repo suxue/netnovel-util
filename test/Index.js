@@ -24,9 +24,9 @@ describe('Index', function(){
     });
 
     it('object property setter/getter', function() {
-      var cover1 = {width:100, height:200},
-          cover2 = {width:100, height:200};
-      index.a.setCover(cover1).getCover().should.deep.equal(cover2);
+      var cover1 = 'http://google.com/cover.jpg',
+          cover2 = 'http://google.com/cover.jpg';
+      index.a.setCoverUrl(cover1).getCoverUrl().should.deep.equal(cover2);
     });
 
 

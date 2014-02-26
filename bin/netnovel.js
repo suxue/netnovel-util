@@ -20,12 +20,14 @@ var request = require('../lib/request');
     } else {
       console.log('dumpError :: argument is not an object');
     }
+    process.exit(99);
   });
 })();
 
 function save_index$A(filename, index) {
   assert(typeof filename === 'string');
   assert(index instanceof Index);
+  var con = this;
   var out;
   if (filename !== '-') {
     out = fs.createWriteStream(filename);
@@ -36,6 +38,7 @@ function save_index$A(filename, index) {
     if (out !== process.stdout) {
       console.log("index writen to " + filename);
     }
+    con.yield();
   });
 }
 
@@ -50,56 +53,55 @@ function print_index$A(index) {
   console.log("title:\t", index.title());
   console.log("author:\t", index.author());
   console.log("brief:\t", index.brief());
-  if (index.cover()) {
-    console.log("cover:\t", index.cover().src);
+  if (index.coverUrl()) {
+    console.log("cover:\t", index.coverUrl());
   }
   console.log("==== Table of Contents ====");
   index.debugPrint(console.log);
+  this.yield();
 }
 
-function read_index$A(url) {
+function read_index$A(url, model) {
   assert(url instanceof Url);
   /////////////////////////////////
-  var index = new Index();
-  index.href(url.data());
-  var dom = require("../lib/dom")(url.getDomain(), 'index');
+  var dom = require("../lib/dom")(url.getDomain(), 'index', model);
 
   function repeater$A(top) {
-    if (top instanceof Index) {
-      this.pop();
-      this.yield(top);
-    } else if (top instanceof Url) {
+    assert(top && typeof top === 'object');
+    if (typeof top.url !== 'string') {
+      this.yield(Index.weave(top));
+    } else {
       this.insert(
         function() {
           var context = this;
-          var job = dom(url, function(r) { context.yield(r); });
-          job.setWorkerExtraArgs(url, index);
+          var job = dom((new Url(top.url)),
+                        function(r) { this.yield(); context.yield(r); });
+          job.setArguments(top);
           job.run();
         },
         repeater$A
       ).yield();
-    } else {
-      throw new TypeError();
     }
   }
 
-  this.insert(repeater$A).yield(/*delimiter*/null, url);
+  this.insert(repeater$A).yield({url: url.data(), href: url.data()});
 }
 
 
-function fetch_chapter$A(urlstr) {
+function fetch_chapter$A(urlstr, model) {
   assert(typeof urlstr === 'string');
   var url = new Url(urlstr);
   ///////////////////////////////////////////////////
 
   var context = this;
-  var dom = require('../lib/dom')(url.getDomain(), 'extract');
+  var dom = require('../lib/dom')(url.getDomain(), 'extract', model);
   dom(url, function(html) {
+    this.yield();
     context.yield(html);
   }).run();
 }
 
-function download_index$A(config, index) {
+function download_index$A(config, index, model, delay, override) {
   assert(typeof config  === 'object');
   assert(index instanceof Index);
 
@@ -107,9 +109,11 @@ function download_index$A(config, index) {
   var sema = new Semaphore();
   var count = config.start;
   var i;
+  var context = this;
 
   sema.hook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
+    context.yield();
   });
 
   // write index.json
@@ -119,22 +123,29 @@ function download_index$A(config, index) {
     sema.decr();
   });
 
+
   // fetch cover picture
-  if (index.cover()) {
-    sema.incr();
-    (function() {
-      var con = new Context();
-      con.set(
-        // set encoding to null to get binary response(node Buffer)
-        request({url: index.cover().src, encoding: null}),
-        function (data) {
-          var body = data.body;
-          fs.writeFileSync(config.outdir + "/cover.jpg", body);
-          console.log("write cover.jpg");
-          sema.decr();
-        }
-      ).fire();
-    })();
+  if (index.coverUrl()) {
+    fs.exists(config.outdir + '/cover.jpg', function (exists) {
+      if (!override && exists) {
+        console.log("skip cover.jpg");
+        return;
+      }
+      sema.incr();
+      (function() {
+        var con = new Context();
+        con.set(
+          // set encoding to null to get binary response(node Buffer)
+          request({url: index.coverUrl(), encoding: null}),
+          function (data) {
+            var body = data.body;
+            fs.writeFileSync(config.outdir + "/cover.jpg", body);
+            console.log("write cover.jpg");
+            sema.decr();
+          }
+        ).fire();
+      })();
+    });
   }
 
   // skip n items to reeach start point
@@ -143,7 +154,7 @@ function download_index$A(config, index) {
 
   var href = index.href();
   var url = new Url(href);
-  var dom = require('../lib/dom')(url.getDomain(), 'extract');
+  var dom = require('../lib/dom')(url.getDomain(), 'extract', model, delay);
   function generator() {
     var item = item_generator();
     if (!item) {
@@ -153,18 +164,26 @@ function download_index$A(config, index) {
     var href = item.url;
     var url = new Url(decodeURI(href));
     var name = item.name;
-    return [
-      url,
-      function(html) {
-        var filename = url.getFileName();
-        sema.incr();
-        fs.writeFile(config.outdir + "/" + filename, html, function() {
-          console.log("fetch ", count++, '/', length, " : ", name);
-          sema.decr();
-        });
-        this.yield();
-      }
-    ];
+    var filename = url.getFileName();
+    var message = function() {
+      return (count++) + '/' + length + ' (' + filename.slice(0,5) + ') : ' + name;
+    };
+    if (!override && fs.existsSync(config.outdir + "/" + filename)) {
+      console.log("skip ", message());
+      return generator();
+    } else {
+      return [
+        url,
+        function(html) {
+          sema.incr();
+          fs.writeFile(config.outdir + "/" + filename, html, function() {
+            console.log("fetch ", message());
+            sema.decr();
+          });
+          this.yield();
+        }
+      ];
+    }
   }
 
   for (i=0; i < config.concurrency; i++) {
@@ -182,6 +201,8 @@ function main(argv) {
   var program = require('commander'),
       package_json = require('../package.json'),
       commands = {};
+
+  program.option("-l, --list", "list misc program information");
 
   function error(msg) {
     console.error("error: " + program._name +  ": " + msg);
@@ -206,12 +227,13 @@ function main(argv) {
       program.option("-i, --input [file]", "the index file to be parsed (- as stdin)");
       program.option("-u, --url [url]", "the url to be indexed");
       program.option("-o, --out [file]", "write index to file");
+      program.option("-b, --browser [model]", "browser backend to use", 'auto');
     },
     action: function() {
       var con = new Context();
 
       if (program.url !== undefined) {
-        con.push(new Url(program.url))
+        con.push(new Url(program.url), program.browser)
            .append(read_index$A);
       } else if (program.input !== undefined) {
         con.append((function() {
@@ -247,6 +269,7 @@ function main(argv) {
       } else {
         con.append(print_index$A);
       }
+      con.append(function() { process.exit(0); });
       con.fire();
     },
   });
@@ -260,7 +283,10 @@ function main(argv) {
         .option("-i, --index [file]", "read index from saved file (- as stdin)")
         .option("-o, --out [dir]", "the target directory of fetched files")
         .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
-        .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5");
+        .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5")
+        .option("-b, --browser [model]", "browser backend to use", 'auto')
+        .option("-f, --force", "force override existing files")
+        .option("-d, --delay", "delay between two request");
     },
     action: function() {
       var fs = require("fs"),
@@ -274,6 +300,13 @@ function main(argv) {
       stat = fs.statSync(program.out);
       if (!stat.isDirectory()) {
         error(program.out + " is not a directory");
+      }
+
+      if (typeof program.delay === 'string') {
+        program.delay = parseInt(program.delay, 10);
+        if (isNaN(program.delay)) {
+          delete program.delay;
+        }
       }
 
       var con = new Context();
@@ -292,7 +325,9 @@ function main(argv) {
       } else {
         error("no url or index file specified, abort");
       }
-      con.append(download_index$A)
+      con.push(program.browser, program.delay, !!program.force)
+         .append(download_index$A)
+         .append(function() { process.exit(0); })
          .fire();
     }
   });
@@ -317,7 +352,11 @@ function main(argv) {
       }
 
       index = Index.loadJSON(fs.readFileSync(filename));
-      index.package(program.index, program.out);
+      program.out = program.out || index.title() + " - " + index.author() + ".epub";
+      index.package(program.index, program.out, function(bytes) {
+        console.log(bytes + " bytes writen to " + program.out);
+        process.exit(0);
+      });
     }
   });
 
@@ -326,15 +365,17 @@ function main(argv) {
     setup: function() {
       program
         .option("\n\b\b[fetch]:", "")
-        .option("-u, --url [url]", "the webpage to be fetched");
+        .option("-u, --url [url]", "the webpage to be fetched")
+        .option("-b, --browser [model]", "browser backend to use", 'auto');
     },
     action: function() {
       check_existstence("url");
       var con = new Context();
-      con.push(program.url)
+      con.push(program.url, program.browser)
          .insert(fetch_chapter$A)
          .append(function(html) {
             console.log(html);
+            process.exit(0);
           })
          .fire();
     }
@@ -381,11 +422,22 @@ function main(argv) {
     })(argv[2]);
   } else if (argv.length === 3 && argv[2][0] === '-') {
     program.parse(argv);
+    if (program.list) {
+      var engines = require('../lib/dom').availableEngines;
+      console.log([" * available dom engines are: "].concat(engines.join(', ')).join(''));
+    }
+    process.exit(0);
   } else {
     console.error("error: unknown subcommand: " + argv[2]);
+    process.exit(1);
   }
 } /// end of main(argv)
 
-main(process.argv);
+require('../lib/miniserver')(function(port) {
+  global.LOCAL_MINISERVER = function(path) {
+    return 'http://localhost:' + port + '/' + path;
+  };
+  main(process.argv);
+});
 
 // vim: set errorformat=%f\:\ line\ %l\\,\ col\ %c\\,%m:

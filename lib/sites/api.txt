@@ -1,0 +1,90 @@
+  // This is not the actually Index object in runtime, but a flatten
+  // representation to be used by indexers worked in the fake dom environment
+
+  // Example:
+  {
+      "coverUrl": "http://xxx.xxx.com/cover.jpg", // optional
+      "author": "D. Crockford",
+      "brief": "this is a classic introductory text to javascript language", //optional
+      "title": "Javascript: The Good Parts",
+      "coverWidth": 250,   // optional
+      "coverHeight": 400,   // optional
+      "toc": [
+        ["Preface", "http://xxx.com/Books/JTGP/preface-id1.html"],
+        {"name": "Chapter 1",
+         "toc":[
+                  ["Section 1.1. Why JavaScript?",
+                   "http://xxx.com/Books/JTGP/why_javascript_question.html"],
+                  ["Section 1.2. Analyzing JavaScript",
+                   "http://xxx.com/Books/JTGP/analyzing_javascript.html"]
+         ]},
+         {"name": "Chapter 2",
+           "toc": [
+              ["Section 2.1. Whitespace", "http://xxx.com/Books/JTGP/whitespace.html"]
+         ]}
+      ]
+  }
+
+
+## indexer 函数
+
+所有的站点脚本都在`lib/sites`文件夹下，这些脚本是普通的nodejs模块，
+在exports对象中注册的属性将被导出，例如
+
+    exports.indexer = function qidian_indexer(index) {
+        var this = window;
+        index.author = $("p").html();
+    }
+
+在所有这些dom worker函数内部(indexer, extractor)，this指向一般浏览器dom中的
+window对象。
+
+indexer的参数index是一个普通javascript
+obejct，其可以包含的属性见上表，当i刚进入indexer函数时，index.url是一个字符串
+表示当前待处理的书名/目录页地址，如果要结束index过程，先`delete
+index.url`再返回index，如还有其他的书名页需接着处理(比如书名和封面在两个不同的网页上)，
+就把下一个待处理的url赋到index.url中再返回index，此index对象将被传递到接下来的index调用中。
+
+## extractor函数
+
+    exports.extractor = function() {
+        var this = window;
+        return window.$("body").html();
+    }
+
+类似于index，this被绑定到window上，以html snippet的形式返回页面内容。
+
+## 选择后端
+
+目前有nodejs原生的jsdom和通过rpc的phantomjs，前者利于调试，后者效率较高且支
+持在dom中运行javascript。要指定使用何者:
+
+    exports.browser = "jsdom";
+
+或者仅对indexer
+
+    exports.indexer.browser = 'phantom';
+
+jsdom可能需要指定页面编码
+
+    exports.indexer.encoding = 'gbk';
+
+使用和site script中指定的不同后端:
+
+    netnovel-util fetch http://xxx.yyy.zzz/page.htm --browser phantom
+
+指定默认delay，下载章节时两章之间等待时间（毫秒）
+
+    exports.delay = 3000;
+
+## 加载外部javascript库
+
+加载”本地“javascript，jquery.js在www文件夹下
+
+    exports.scripts = ["jquery.js"];
+
+加载外部javascript:
+
+    exports.scripts = ["http://ajax.googleapis.com/ajax/libs/angularjs/1.2.12/angular.min.js"];
+
+// vim: set ft=markdown:
