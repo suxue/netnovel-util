@@ -14,13 +14,15 @@ package(xmlns="http://www.idpf.org/2007/opf", version="2.0", unique-identifier="
     item(href="info.html", media-type="application/xhtml+xml", id="infopage")
     item(href="catalog.html", id="catalog", media-type="application/xhtml+xml")
     item(href="toc.ncx", media-type="application/x-dtbncx+xml", id="ncx")
-    each i in manifest
-      item(href=i.href, id=i.id, media-type="application/xhtml+xml")
+    - for (var i = 0; i< sections; i++)
+      item(href="OEBPS/section"+i+".html", id="section"+i, media-type="application/xhtml+xml")
+    each i in contents
+      item(href='OEBPS/'+i[1], id=i[0], media-type="application/xhtml+xml")
   spine(toc="ncx")
     itemref(idref="titlepage")
     itemref(idref="infopage")
     itemref(idref="catalog")
-    each i in spine
-      itemref(idref=i)
+    each i in contents
+      itemref(idref=i[0])
   guide
     reference(href="catalog.html", title="目录", type="toc")
