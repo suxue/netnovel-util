@@ -95,10 +95,14 @@ function fetch_chapter$A(urlstr, model) {
 
   var context = this;
   var dom = require('../lib/dom')(url.getDomain(), 'extract', model);
-  dom(url, function(html) {
+  var job = dom(url, function(html) {
     this.yield();
     context.yield(html);
-  }).run();
+  });
+  if (job.cleanUpFn instanceof Function) {
+    process.on("exit", job.cleanUpFn);
+  }
+  job.run();
 }
 
 function download_index$A(config, index, model, delay, override) {
@@ -111,6 +115,7 @@ function download_index$A(config, index, model, delay, override) {
   var i;
   var context = this;
   var skipCount = 0;
+  var skipedCount = 0;
 
   sema.hook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
@@ -167,7 +172,7 @@ function download_index$A(config, index, model, delay, override) {
     var name = item.name;
     var filename = url.getFileName();
     var message = function() {
-      return (count++) + '/' + length + ' (' + filename.slice(0,5) + ') : ' + name;
+      return ((count++) + skipedCount + skipCount) + '/' + length + ' (' + filename.slice(0,5) + ') : ' + name;
     };
     if (!override && fs.existsSync(config.outdir + "/" + filename)) {
       skipCount++;
@@ -175,6 +180,7 @@ function download_index$A(config, index, model, delay, override) {
     } else {
       if (skipCount > 0) {
         console.error("\033[31;1mskip \033[32;1m" + skipCount + '\033[31;1m items which is present in output dir\033[0m');
+        skipedCount += skipCount;
         skipCount = 0;
       }
       return [
