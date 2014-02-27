@@ -1,7 +1,7 @@
 {
   "name": "netnovel-util",
   "description": "Utility for probing, downloading and packaging netnovels",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/suxue/netnovel-util/issues"
