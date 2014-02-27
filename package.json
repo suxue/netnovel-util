@@ -1,7 +1,8 @@
 {
   "name": "netnovel-util",
   "description": "Utility for probing, downloading and packaging netnovels",
-  "version": "0.0.3",
+  "version": "0.0.4",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/suxue/netnovel-util/issues"
   },
@@ -12,6 +13,9 @@
   "repository": {
     "type": "git",
     "url": "git@github.com:suxue/netnovel-util.git"
+  },
+  "config": {
+    "ua": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) AppleWebKit/537.11 (KHTML, like Gecko) Chrome/23.0.1271.97 Safari/537.11"
   },
   "files": [
     "bin/",
