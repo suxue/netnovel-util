@@ -110,6 +110,7 @@ function download_index$A(config, index, model, delay, override) {
   var count = config.start;
   var i;
   var context = this;
+  var skipCount = 0;
 
   sema.hook(function() {
     console.log('\n  fetching complete, writen out to: ' + config.outdir);
@@ -128,7 +129,7 @@ function download_index$A(config, index, model, delay, override) {
   if (index.coverUrl()) {
     fs.exists(config.outdir + '/cover.jpg', function (exists) {
       if (!override && exists) {
-        console.log("skip cover.jpg");
+        skipCount++;
         return;
       }
       sema.incr();
@@ -169,9 +170,13 @@ function download_index$A(config, index, model, delay, override) {
       return (count++) + '/' + length + ' (' + filename.slice(0,5) + ') : ' + name;
     };
     if (!override && fs.existsSync(config.outdir + "/" + filename)) {
-      console.log("skip ", message());
+      skipCount++;
       return generator();
     } else {
+      if (skipCount > 0) {
+        console.error("\033[31;1mskip \033[32;1m" + skipCount + '\033[31;1m items which is present in output dir\033[0m');
+        skipCount = 0;
+      }
       return [
         url,
         function(html) {
@@ -186,10 +191,17 @@ function download_index$A(config, index, model, delay, override) {
     }
   }
 
-  for (i=0; i < config.concurrency; i++) {
-    sema.incr();
-    dom(generator).onEnd(function() {sema.decr(); }).run();
+  function run(task_id) {
+    if (task_id > 0) {
+      sema.incr();
+      dom(generator).onEnd(function() { sema.decr(); }).run();
+      setTimeout(function() { run(task_id - 1); }, delay);
+    } else {
+      sema.decr();
+    }
   }
+  sema.incr();
+  run(config.concurrency);
 }
 
 function main(argv) {
@@ -282,11 +294,11 @@ function main(argv) {
         .option("-u, --url [url]", "the url of index")
         .option("-i, --index [file]", "read index from saved file (- as stdin)")
         .option("-o, --out [dir]", "the target directory of fetched files")
+        .option("-d, --delay [milesecond]", "delay between two request")
         .option("-s, --start [pos]", "the start point (1-based) of downloading", "1")
         .option("-n, --concurrency [num]", "establish [num] connections concurrently", "5")
         .option("-b, --browser [model]", "browser backend to use", 'auto')
-        .option("-f, --force", "force override existing files")
-        .option("-d, --delay", "delay between two request");
+        .option("-f, --force", "force override existing files");
     },
     action: function() {
       var fs = require("fs"),
@@ -302,11 +314,14 @@ function main(argv) {
         error(program.out + " is not a directory");
       }
 
+
       if (typeof program.delay === 'string') {
         program.delay = parseInt(program.delay, 10);
         if (isNaN(program.delay)) {
           delete program.delay;
         }
+      } else {
+        program.delay = 0;
       }
 
       var con = new Context();
