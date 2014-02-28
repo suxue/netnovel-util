@@ -14,7 +14,7 @@ var request = require('../lib/request');
   process.on('uncaughtException', function(err) {
     if (typeof err === 'object' && typeof err.name === 'string') {
       if (err.message) {
-        console.log('\nMessage: ' + err.message);
+        console.log('\nMessage: \033[31;1m' + err.message + '\033[0m');
       }
       console.log(err.stack);
     } else {
@@ -23,6 +23,7 @@ var request = require('../lib/request');
     process.exit(99);
   });
 })();
+
 
 function save_index$A(filename, index) {
   assert(typeof filename === 'string');

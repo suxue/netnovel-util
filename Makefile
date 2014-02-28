@@ -21,7 +21,10 @@ debug: build
 indent:
 	@find bin/ lib/ test/ -type f -name '*.js' -exec ./script/indent '{}' ';'
 
-build:
+build: precheck
 	@if [[ ! -d node_modules ]]; then npm install; fi
+
+precheck:
+	@if [[ ! -f www/jquery-2.0.1.min.js ]]; then wget http://code.jquery.com/jquery-2.0.1.min.js -O - | gunzip > www/jquery-2.0.1.min.js; fi
 
 .PHONY: all test cov debug lint indent
