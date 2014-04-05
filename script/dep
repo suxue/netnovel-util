@@ -1,0 +1,5 @@
+#!/bin/sh
+
+if [ ! -f www/jquery-2.0.1.min.js ]; then
+    curl http://code.jquery.com/jquery-2.0.1.min.js -o www/jquery-2.0.1.min.js
+fi

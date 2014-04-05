@@ -7,9 +7,11 @@ package(xmlns="http://www.idpf.org/2007/opf", version="2.0", unique-identifier="
     dc:description=brief
     dc:language zh-CN
     dc:title=title
-    meta(name="cover",content="cover")
+    - if (cover)
+      meta(name="cover",content="cover")
   manifest
-    item(href="cover.jpg", media-type="image/jpeg", id="cover")
+    - if (cover)
+      item(href="cover.jpg", media-type="image/jpeg", id="cover")
     item(href="titlepage.xhtml", media-type="application/xhtml+xml", id="titlepage")
     item(href="info.html", media-type="application/xhtml+xml", id="infopage")
     item(href="catalog.html", id="catalog", media-type="application/xhtml+xml")

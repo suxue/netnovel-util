@@ -6,8 +6,9 @@ html(xmlns="http://www.w3.org/1999/xhtml", xml:lang="zh-CN")
     style(type="text/css")
       | @page { margin-bottom: 5pt; margin-top: 5pt; }
   body
-    div.cover
-      img(src="cover.jpg")
+    if (cover)
+      div.cover
+        img(src="cover.jpg")
     div.bookinfo
       ul
         li

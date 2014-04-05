@@ -7,6 +7,18 @@ var Url = require('../lib/Url');
 var assert = require('../lib/assert');
 var request = require('../lib/request');
 
+var miniserver = null;
+
+function quitapp(code) {
+  if (miniserver) {
+    process.stderr.write = function() {};
+    miniserver.close();
+  }
+  process.on("exit", function() {
+    process.exit(code);
+  });
+}
+
 (function(){
 // setup fallback error reporting
 //
@@ -20,7 +32,7 @@ var request = require('../lib/request');
     } else {
       console.log('dumpError :: argument is not an object');
     }
-    process.exit(99);
+    quitapp(99);
   });
 })();
 
@@ -51,14 +63,20 @@ function save_index$A(filename, index) {
 function print_index$A(index) {
   assert(index instanceof Index);
 
-  console.log("title:\t", index.title());
-  console.log("author:\t", index.author());
-  console.log("brief:\t", index.brief());
-  if (index.coverUrl()) {
-    console.log("cover:\t", index.coverUrl());
+  function print() {
+    var argv = Array.prototype.slice.call(arguments);
+    argv.push('\n');
+    process.stdout.write(argv.join(''));
   }
-  console.log("==== Table of Contents ====");
-  index.debugPrint(console.log);
+
+  print("title:\t", index.title());
+  print("author:\t", index.author());
+  print("brief:\t", index.brief());
+  if (index.coverUrl()) {
+    print("cover:\t", index.coverUrl());
+  }
+  print("==== Table of Contents ====");
+  index.debugPrint(print);
   this.yield();
 }
 
@@ -100,9 +118,6 @@ function fetch_chapter$A(urlstr, model) {
     this.yield();
     context.yield(html);
   });
-  if (job.cleanUpFn instanceof Function) {
-    process.on("exit", job.cleanUpFn);
-  }
   job.run();
 }
 
@@ -143,7 +158,10 @@ function download_index$A(config, index, model, delay, override) {
         var con = new Context();
         con.set(
           // set encoding to null to get binary response(node Buffer)
-          request({url: index.coverUrl(), encoding: null}),
+          request({url: index.coverUrl(),
+                  encoding: null,
+                  headers: {Referer: 'http://' + (new Url(index.coverUrl())).getDomain()}
+          }),
           function (data) {
             var body = data.body;
             fs.writeFileSync(config.outdir + "/cover.jpg", body);
@@ -211,6 +229,35 @@ function download_index$A(config, index, model, delay, override) {
   run(config.concurrency);
 }
 
+function list_scripts(genpath, path) {
+  function p(a, b) {
+    var len = 30;
+    var diff = len - a.length;
+    for (var i=0; i < diff; i++) {
+      b = " " + b;
+    }
+    console.log(" * http://" + a + b);
+  }
+
+  var stat = fs.statSync(genpath(path.join('/')));
+  if (stat.isFile()) {
+    var mod = require("../lib/sites/" + path.join('/'));
+    path = path.reverse();
+    if (path[0] === 'index.js') {
+      path.shift();
+    } else {
+      path[0] = path[0].slice(0, path[0].length - 3);
+    }
+    path.reverse();
+    p(path.reverse().join("."), mod.name ?  mod.name : '');
+  } else if (stat.isDirectory()) {
+    var dirs = fs.readdirSync(genpath(path.join('/')));
+    dirs.forEach(function(dir) {
+      list_scripts(genpath, path.concat(dir));
+    });
+  }
+}
+
 function main(argv) {
   // for 'node debug'
   if (argv[1] === "debug") {
@@ -225,7 +272,7 @@ function main(argv) {
 
   function error(msg) {
     console.error("error: " + program._name +  ": " + msg);
-    process.exit(1);
+    quitapp(1);
   }
 
   function check_existstence(prop) {
@@ -288,7 +335,7 @@ function main(argv) {
       } else {
         con.append(print_index$A);
       }
-      con.append(function() { process.exit(0); });
+      con.append(quitapp);
       con.fire();
     },
   });
@@ -349,7 +396,7 @@ function main(argv) {
       }
       con.push(program.browser, program.delay, !!program.force)
          .append(download_index$A)
-         .append(function() { process.exit(0); })
+         .append(quitapp)
          .fire();
     }
   });
@@ -377,7 +424,7 @@ function main(argv) {
       program.out = program.out || index.title() + " - " + index.author() + ".epub";
       index.package(program.index, program.out, function(bytes) {
         console.log(bytes + " bytes writen to " + program.out);
-        process.exit(0);
+        quitapp();
       });
     }
   });
@@ -397,9 +444,63 @@ function main(argv) {
          .insert(fetch_chapter$A)
          .append(function(html) {
             console.log(html);
-            process.exit(0);
+            quitapp();
           })
          .fire();
+    }
+  });
+
+  define_subcommand("info", {
+    description: "display various information",
+    setup: function () {
+      program.option("\n\b\b[info]:", "")
+             .option("-b, --browser", "list available browsers")
+             .option("-s, --sites", "list available site scripts");
+    },
+    action: function() {
+      var sema = new Semaphore();
+      sema.incr();
+      sema.hook(quitapp);
+      if (program.browser) {
+        sema.incr();
+        var jsdom = require("jsdom");
+        var child_process = require("child_process");
+        child_process.exec("phantomjs --version", function(err, stdout) {
+          console.log("Browsers:");
+          if (!err) {
+            console.log(" * phantomjs: " + stdout.toString().trim());
+          }
+          if (jsdom) {
+            console.log(" * jsdom: " + jsdom.version);
+          }
+          console.log();
+          sema.decr();
+        });
+      }
+
+      if (program.sites) {
+        sema.incr();
+        var dirs = [];
+        var genpath = function(dir) {
+          var basepath = __dirname + "/../lib/sites";
+          if (arguments.length === 0) {
+            return basepath;
+          } else {
+            return basepath + '/' + dir;
+          }
+        };
+        fs.readdirSync(genpath()).forEach(function(dir) {
+          if (fs.statSync(genpath(dir)).isDirectory()) {
+            dirs.push(dir);
+          }
+        });
+
+        console.log("Sites:");
+        dirs.forEach(function (dir) { list_scripts(genpath, [dir]); });
+        console.log();
+        sema.decr();
+      }
+      sema.decr();
     }
   });
 
@@ -448,17 +549,18 @@ function main(argv) {
       var engines = require('../lib/dom').availableEngines;
       console.log([" * available dom engines are: "].concat(engines.join(', ')).join(''));
     }
-    process.exit(0);
+    quitapp();
   } else {
     console.error("error: unknown subcommand: " + argv[2]);
-    process.exit(1);
+    quitapp(2);
   }
 } /// end of main(argv)
 
-require('../lib/miniserver')(function(port) {
+require('../lib/miniserver')(function(port, server) {
   global.LOCAL_MINISERVER = function(path) {
     return 'http://localhost:' + port + '/' + path;
   };
+  miniserver = server;
   main(process.argv);
 });
 
