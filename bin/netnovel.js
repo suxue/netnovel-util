@@ -204,12 +204,13 @@ function download_index$A(config, index, model, delay, override) {
       }
       return [
         url,
-        function(html) {
+        function(obj) {
           sema.incr();
-          fs.writeFile(config.outdir + "/" + filename, html, function() {
-            console.log("fetch ", message());
-            sema.decr();
-          });
+          fs.writeFile(config.outdir + "/" + filename, JSON.stringify(obj),
+            function() {
+              console.log("fetch ", message());
+              sema.decr();
+            });
           this.yield();
         }
       ];
