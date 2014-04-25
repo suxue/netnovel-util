@@ -3,6 +3,7 @@ html(xmlns="http://www.w3.org/1999/xhtml", xml:lang="zh-CN")
   head
     title 封面
     meta(http-equiv="Content-Type", content="text/html; charset=utf-8")
+    link(href="stylesheet.css" type="text/css" rel="stylesheet")
     style(type="text/css")
       | @page { margin-bottom: 5pt; margin-top: 5pt; }
   body
@@ -12,16 +13,14 @@ html(xmlns="http://www.w3.org/1999/xhtml", xml:lang="zh-CN")
     div.bookinfo
       ul
         li
-          b 书名
-        li
+          b 书名:
           =title
       ul
         li
-          b 作者
-        li
+          b 作者:
           =author
       ul
         li
-          b 简介
-        li
+          b 简介:
+          br
           =brief
